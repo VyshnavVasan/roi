@@ -1,0 +1,1625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <!-- ===== MOBILE META TAGS ===== -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#cc0000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <title>Keyence Laser Marking ROI Calculator</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* ===== RESET ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent; /* Remove blue flash on tap (iOS/Android) */
+            touch-action: manipulation;               /* Faster tap response, no double-tap zoom */
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            -webkit-text-size-adjust: 100%; /* Prevent iOS font size auto-adjust */
+        }
+
+        /* ===== HEADER ===== */
+        header {
+            background: linear-gradient(135deg, #cc0000, #990000);
+            color: white;
+            padding: 25px 40px;
+            /* Safe area for iPhone notch */
+            padding-top: max(25px, env(safe-area-inset-top));
+            padding-left:  max(40px, env(safe-area-inset-left));
+            padding-right: max(40px, env(safe-area-inset-right));
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        header h1 { font-size: 22px; font-weight: 700; }
+        header p   { font-size: 13px; opacity: 0.85; margin-top: 4px; }
+
+        .logo-text {
+            font-size: 26px;
+            font-weight: 900;
+            letter-spacing: 3px;
+            border: 3px solid white;
+            padding: 6px 14px;
+            border-radius: 4px;
+            white-space: nowrap;
+        }
+
+        /* ===== CONTAINER ===== */
+        .container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+            /* Side safe areas for landscape iPhone */
+            padding-left:  max(20px, env(safe-area-inset-left));
+            padding-right: max(20px, env(safe-area-inset-right));
+        }
+
+        /* ===== PROGRESS BAR ===== */
+        .progress-bar {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .progress-step {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #aaa;
+        }
+
+        .progress-step .dot {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #ddd;
+            color: #999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .progress-step.active .dot { background: #cc0000; color: white; }
+        .progress-step.active      { color: #cc0000; }
+        .connector { width: 30px; height: 2px; background: #ddd; align-self: center; }
+
+        /* ===== SECTION CARDS ===== */
+        .section-card {
+            background: white;
+            border-radius: 10px;
+            padding: 28px 32px;
+            margin-bottom: 22px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+            border-left: 5px solid #cc0000;
+            transition: box-shadow 0.2s;
+        }
+
+        .section-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.12); }
+
+        .section-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: #cc0000;
+            margin-bottom: 22px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .step-badge {
+            background: #cc0000;
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 800;
+            flex-shrink: 0;
+        }
+
+        /* ===== FORMS ===== */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+        }
+
+        .form-group { display: flex; flex-direction: column; }
+
+        label {
+            font-size: 12px;
+            font-weight: 700;
+            color: #555;
+            margin-bottom: 7px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        /* ===== INPUTS — font-size 16px CRITICAL for iOS no-zoom ===== */
+        input[type="number"],
+        input[type="text"],
+        select {
+            width: 100%;
+            padding: 11px 58px 11px 14px;
+            border: 2px solid #e8e8e8;
+            border-radius: 8px;
+            font-size: 16px;          /* ← CRITICAL: prevents iOS Safari auto-zoom on focus */
+            color: #333;
+            background: #fafafa;
+            transition: all 0.2s;
+            min-height: 48px;         /* Apple recommended minimum touch target */
+            -webkit-appearance: none; /* Remove iOS default styling */
+            appearance: none;
+        }
+
+        input[type="number"]:focus,
+        input[type="text"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #cc0000;
+            background: white;
+            box-shadow: 0 0 0 4px rgba(204,0,0,0.08);
+        }
+
+        /* Custom dropdown arrow for select (replaces native removed by -webkit-appearance:none) */
+        select {
+            padding-right: 36px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23999' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            background-size: 10px;
+            cursor: pointer;
+        }
+
+        .unit-badge {
+            position: absolute;
+            right: 10px;
+            font-size: 11px;
+            font-weight: 700;
+            color: #999;
+            background: #f0f0f0;
+            padding: 3px 6px;
+            border-radius: 4px;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        /* Push unit badge right for select elements (they have their own arrow) */
+        select + .unit-badge { display: none; }
+
+        .field-hint {
+            font-size: 11px;
+            color: #999;
+            margin-top: 5px;
+            font-style: italic;
+        }
+
+        /* ===== ELECTRICITY DIVIDER ===== */
+        .sub-section-label {
+            grid-column: 1 / -1;
+            font-size: 12px;
+            font-weight: 700;
+            color: #009688;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 10px 14px 8px;
+            border-top: 2px dashed #e0f2f1;
+            border-radius: 6px;
+            margin-top: 6px;
+            background: #f5fffe;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* ===== CALCULATE BUTTON ===== */
+        .calculate-btn {
+            background: linear-gradient(135deg, #cc0000, #aa0000);
+            color: white;
+            border: none;
+            padding: 16px 60px;
+            font-size: 17px;
+            font-weight: 700;
+            border-radius: 10px;
+            cursor: pointer;
+            display: block;
+            margin: 30px auto 10px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(204,0,0,0.35);
+            letter-spacing: 0.5px;
+            min-width: 290px;
+            min-height: 54px; /* Touch-friendly */
+        }
+
+        .calculate-btn:hover:not(:disabled) {
+            background: linear-gradient(135deg, #aa0000, #880000);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(204,0,0,0.45);
+        }
+
+        .calculate-btn:active:not(:disabled) {
+            transform: translateY(0px);  /* Press feedback on mobile */
+        }
+
+        .calculate-btn:disabled { cursor: not-allowed; opacity: 0.85; }
+
+        .calculate-btn.loading {
+            background: linear-gradient(135deg, #888, #666) !important;
+            transform: none !important;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important;
+        }
+
+        .calculate-btn.success {
+            background: linear-gradient(135deg, #00aa44, #007730) !important;
+            box-shadow: 0 4px 15px rgba(0,170,68,0.45) !important;
+        }
+
+        .btn-spinner {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 3px solid rgba(255,255,255,0.35);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: btnSpin 0.75s linear infinite;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+
+        @keyframes btnSpin { to { transform: rotate(360deg); } }
+
+        /* ===== PROGRESS BAR UNDER BUTTON ===== */
+        .calc-progress-wrap {
+            display: none;
+            width: 290px;
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            margin: 0 auto 28px;
+            overflow: hidden;
+        }
+
+        .calc-progress-wrap.active { display: block; }
+
+        .calc-progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #cc0000, #ff5555);
+            border-radius: 3px;
+            transition: width 0.85s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* ===== TOAST ===== */
+        .calc-toast {
+            position: fixed;
+            bottom: 28px;
+            right: 28px;
+            background: #1b6b3a;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.25);
+            transform: translateX(160px);
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            max-width: 310px;
+        }
+
+        .calc-toast.show { transform: translateX(0); opacity: 1; }
+        .toast-icon { font-size: 22px; flex-shrink: 0; }
+
+        /* ===== RESULTS ===== */
+        .results-section { display: none; }
+        .results-section.visible { display: block; animation: fadeIn 0.5s ease; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ===== RECOMMENDATION BOX ===== */
+        .recommendation-box {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            color: white;
+            border-radius: 12px;
+            padding: 28px 32px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+
+        .recommendation-box h3 { font-size: 20px; margin-bottom: 18px; color: #fff; }
+
+        .rec-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+        }
+
+        .rec-item {
+            background: rgba(255,255,255,0.08);
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-size: 13px;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            border-left: 3px solid #cc0000;
+        }
+
+        .rec-item .rec-icon { font-size: 16px; flex-shrink: 0; }
+
+        /* ===== KPI CARDS ===== */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 25px;
+        }
+
+        .kpi-card {
+            background: white;
+            border-radius: 10px;
+            padding: 22px 20px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+            transition: transform 0.2s;
+        }
+
+        .kpi-card:hover { transform: translateY(-3px); }
+        .kpi-card.green  { border-top: 4px solid #00aa44; }
+        .kpi-card.red    { border-top: 4px solid #cc0000; }
+        .kpi-card.blue   { border-top: 4px solid #0066cc; }
+        .kpi-card.orange { border-top: 4px solid #ff6600; }
+        .kpi-card.teal   { border-top: 4px solid #009688; }
+
+        .kpi-icon     { font-size: 28px; margin-bottom: 10px; }
+        .kpi-value    { font-size: 26px; font-weight: 800; color: #222; margin-bottom: 6px; line-height: 1; }
+        .kpi-label    { font-size: 12px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 0.4px; }
+        .kpi-sublabel { font-size: 11px; color: #aaa; margin-top: 4px; }
+
+        /* ===== CHARTS ===== */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+            gap: 22px;
+            margin-bottom: 22px;
+        }
+
+        .chart-card {
+            background: white;
+            border-radius: 10px;
+            padding: 24px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+            /* Prevent chart overflow on small screens */
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .chart-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 18px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        /* ===== BREAKDOWN TABLE ===== */
+        .breakdown-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+
+        .breakdown-table th {
+            background: #f8f8f8;
+            padding: 13px 16px;
+            text-align: left;
+            font-weight: 700;
+            color: #555;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid #eee;
+            white-space: nowrap;
+        }
+
+        .breakdown-table td { padding: 11px 16px; border-bottom: 1px solid #f5f5f5; color: #333; }
+        .breakdown-table tr:hover td { background: #fafafa; }
+
+        .breakdown-table tfoot td {
+            font-weight: 800;
+            font-size: 15px;
+            background: #f0f0f0;
+            border-top: 2px solid #ddd;
+        }
+
+        .positive-val { color: #00aa44; font-weight: 700; }
+        .negative-val { color: #cc0000; font-weight: 700; }
+
+        /* ===== SUMMARY BANNER ===== */
+        .summary-banner {
+            background: linear-gradient(135deg, #cc0000, #990000);
+            color: white;
+            border-radius: 10px;
+            padding: 22px 28px;
+            margin-bottom: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .banner-item   { text-align: center; }
+        .banner-value  { font-size: 28px; font-weight: 900; }
+        .banner-label  { font-size: 12px; opacity: 0.85; margin-top: 4px; }
+        .banner-divider{ width: 1px; height: 50px; background: rgba(255,255,255,0.3); }
+
+        /* ===== ACTION BUTTONS ===== */
+        .btn-group {
+            display: flex;
+            justify-content: center;
+            gap: 14px;
+            margin-top: 25px;
+            flex-wrap: wrap;
+        }
+
+        .btn-print {
+            background: #333;
+            color: white;
+            border: none;
+            padding: 13px 32px;
+            font-size: 14px;
+            font-weight: 700;
+            border-radius: 8px;
+            cursor: pointer;
+            min-height: 48px;
+            transition: background 0.2s;
+        }
+
+        .btn-print:hover { background: #555; }
+
+        .btn-reset {
+            background: white;
+            color: #cc0000;
+            border: 2px solid #cc0000;
+            padding: 13px 32px;
+            font-size: 14px;
+            font-weight: 700;
+            border-radius: 8px;
+            cursor: pointer;
+            min-height: 48px;
+            transition: all 0.2s;
+        }
+
+        .btn-reset:hover { background: #fff5f5; }
+
+        /* ===== ALERT BOX ===== */
+        .alert-box {
+            background: #fff8e1;
+            border: 1px solid #ffcc00;
+            border-radius: 8px;
+            padding: 14px 18px;
+            margin-bottom: 22px;
+            font-size: 13px;
+            color: #664400;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* ===== FOOTER ===== */
+        footer {
+            background: #1a1a1a;
+            color: #888;
+            text-align: center;
+            padding: 24px;
+            padding-bottom: max(24px, env(safe-area-inset-bottom));
+            font-size: 12px;
+            margin-top: 50px;
+        }
+
+        footer strong { color: #ccc; }
+
+        /* ===== SCROLLBAR ===== */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cc0000; border-radius: 3px; }
+
+        /* =============================================
+           MOBILE STYLES — 768px and below
+           Covers: iPhone, Android phones, small tablets
+        ============================================= */
+        @media (max-width: 768px) {
+
+            /* --- Header --- */
+            header {
+                flex-direction: column;
+                text-align: center;
+                gap: 12px;
+                padding: 16px 18px;
+                padding-top: max(20px, env(safe-area-inset-top));
+            }
+
+            header h1  { font-size: 17px; }
+            header p   { font-size: 11px; }
+            .logo-text { font-size: 20px; letter-spacing: 2px; padding: 5px 12px; }
+
+            /* --- Container --- */
+            .container {
+                margin: 14px auto;
+                padding: 0 12px;
+                padding-left:  max(12px, env(safe-area-inset-left));
+                padding-right: max(12px, env(safe-area-inset-right));
+            }
+
+            /* --- Hide desktop progress steps on mobile --- */
+            .progress-bar { display: none; }
+
+            /* --- Section cards --- */
+            .section-card  { padding: 16px 14px; margin-bottom: 14px; }
+            .section-title { font-size: 14px; gap: 8px; margin-bottom: 16px; }
+            .step-badge    { width: 26px; height: 26px; font-size: 12px; flex-shrink: 0; }
+
+            /* --- Single column form on mobile --- */
+            .form-grid {
+                grid-template-columns: 1fr !important;
+                gap: 16px;
+            }
+
+            /* --- Larger inputs for finger tapping --- */
+            input[type="number"],
+            input[type="text"],
+            select {
+                font-size: 16px !important; /* CRITICAL — prevents iOS zoom */
+                min-height: 52px;
+                padding: 14px 58px 14px 14px;
+                border-radius: 8px;
+            }
+
+            select {
+                padding-right: 40px;
+                background-position: right 14px center;
+            }
+
+            label       { font-size: 12px; margin-bottom: 6px; }
+            .field-hint { font-size: 10px; margin-top: 4px; }
+            .unit-badge { font-size: 10px; right: 8px; }
+
+            .sub-section-label {
+                font-size: 11px;
+                padding: 8px 12px 6px;
+            }
+
+            /* --- Full-width calculate button --- */
+            .calculate-btn {
+                width: 100%;
+                min-width: unset;
+                padding: 18px 20px;
+                font-size: 16px;
+                margin: 20px 0 8px;
+                min-height: 56px;
+                border-radius: 10px;
+            }
+
+            /* --- Full-width progress bar --- */
+            .calc-progress-wrap {
+                width: 100%;
+                margin: 0 0 20px;
+            }
+
+            /* --- Summary banner — vertical stack --- */
+            .summary-banner {
+                flex-direction: column;
+                padding: 18px 16px;
+                gap: 12px;
+                border-radius: 10px;
+            }
+
+            .banner-divider { display: none; }
+            .banner-value   { font-size: 24px; }
+            .banner-label   { font-size: 11px; }
+
+            /* --- Recommendation box --- */
+            .recommendation-box {
+                padding: 16px 14px;
+                margin-bottom: 16px;
+                border-radius: 10px;
+            }
+
+            .recommendation-box h3 { font-size: 15px; margin-bottom: 12px; }
+
+            .rec-grid {
+                grid-template-columns: 1fr !important;
+                gap: 8px;
+            }
+
+            .rec-item { font-size: 12px; padding: 10px 12px; }
+
+            /* --- KPI cards — 2 per row on mobile --- */
+            .kpi-grid {
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 10px;
+                margin-bottom: 16px;
+            }
+
+            .kpi-card    { padding: 14px 10px; border-radius: 8px; }
+            .kpi-icon    { font-size: 22px; margin-bottom: 7px; }
+            .kpi-value   { font-size: 18px; margin-bottom: 4px; }
+            .kpi-label   { font-size: 9px; letter-spacing: 0.2px; }
+            .kpi-sublabel{ font-size: 8px; margin-top: 3px; }
+
+            /* --- Charts — single column, constrained height --- */
+            .charts-grid {
+                grid-template-columns: 1fr !important;
+                gap: 12px;
+                margin-bottom: 14px;
+            }
+
+            .chart-card   { padding: 14px 12px; }
+            .chart-title  { font-size: 12px; margin-bottom: 12px; padding-bottom: 8px; }
+            .chart-card canvas { max-height: 250px; }
+
+            /* --- Breakdown table — horizontal scroll --- */
+            .breakdown-table     { font-size: 11px; }
+            .breakdown-table th  { padding: 8px 10px; font-size: 9px; }
+            .breakdown-table td  { padding: 7px 10px; }
+            .breakdown-table tfoot td { font-size: 12px; }
+
+            /* --- Alert box --- */
+            .alert-box { font-size: 12px; padding: 12px 14px; gap: 8px; }
+
+            /* --- Action buttons — full width on mobile --- */
+            .btn-group {
+                flex-direction: column;
+                gap: 10px;
+                align-items: stretch;
+            }
+
+            .btn-print,
+            .btn-reset {
+                width: 100%;
+                padding: 15px 20px;
+                font-size: 15px;
+                text-align: center;
+                min-height: 52px;
+                border-radius: 8px;
+            }
+
+            /* --- Toast — safe area bottom --- */
+            .calc-toast {
+                right: 12px;
+                left: 12px;
+                bottom: max(16px, env(safe-area-inset-bottom));
+                max-width: 100%;
+                font-size: 13px;
+                transform: translateY(120px); /* Slide up from bottom on mobile */
+            }
+
+            .calc-toast.show { transform: translateY(0); }
+
+            /* --- Footer --- */
+            footer {
+                margin-top: 30px;
+                padding: 16px 16px;
+                padding-bottom: max(20px, env(safe-area-inset-bottom));
+                font-size: 11px;
+            }
+        }
+
+        /* =============================================
+           EXTRA SMALL PHONES — iPhone SE, Galaxy A series
+           Screen width 380px and below
+        ============================================= */
+        @media (max-width: 380px) {
+            header h1  { font-size: 14px; }
+            header p   { font-size: 10px; }
+            .logo-text { font-size: 17px; padding: 4px 10px; letter-spacing: 2px; }
+
+            .section-title { font-size: 13px; }
+            .step-badge    { width: 24px; height: 24px; font-size: 11px; }
+
+            .kpi-value  { font-size: 16px; }
+            .kpi-label  { font-size: 8px; }
+            .banner-value { font-size: 21px; }
+
+            .calculate-btn { font-size: 15px; padding: 16px 16px; }
+
+            .rec-item  { font-size: 11px; }
+            .chart-card canvas { max-height: 210px; }
+        }
+
+        /* =============================================
+           PRINT STYLES
+        ============================================= */
+        @media print {
+            header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .calculate-btn, .btn-print, .btn-reset, .progress-bar,
+            .calc-progress-wrap, .calc-toast { display: none !important; }
+            .results-section { display: block !important; }
+            .section-card    { box-shadow: none; border: 1px solid #ddd; }
+            body             { background: white; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ========== TOAST NOTIFICATION ========== -->
+<div class="calc-toast" id="calcToast">
+    <span class="toast-icon">✅</span>
+    <div>
+        <div style="font-size:15px;font-weight:800;margin-bottom:3px;">ROI Calculated!</div>
+        <div style="font-size:12px;opacity:0.85;">Scroll down to view your results</div>
+    </div>
+</div>
+
+<!-- ========== HEADER ========== -->
+<header>
+    <div>
+        <h1>🏭 Laser Marking ROI Calculator</h1>
+        <p>Calculate your Return on Investment for Keyence Laser & Other Marking Systems</p>
+    </div>
+    <div class="logo-text">KEYENCE</div>
+</header>
+
+<!-- ========== MAIN CONTAINER ========== -->
+<div class="container">
+
+    <!-- Progress Steps -->
+    <div class="progress-bar">
+        <div class="progress-step active"><div class="dot">1</div> Company Info</div>
+        <div class="connector"></div>
+        <div class="progress-step active"><div class="dot">2</div> Production Data</div>
+        <div class="connector"></div>
+        <div class="progress-step active"><div class="dot">3</div> Current Costs</div>
+        <div class="connector"></div>
+        <div class="progress-step active"><div class="dot">4</div> New Investment</div>
+        <div class="connector"></div>
+        <div class="progress-step active"><div class="dot">5</div> Improvements</div>
+        <div class="connector"></div>
+        <div class="progress-step active"><div class="dot">✓</div> Results</div>
+    </div>
+
+    <!-- ===== STEP 1: COMPANY INFO ===== -->
+    <div class="section-card">
+        <div class="section-title">
+            <div class="step-badge">1</div>
+            Company & Application Information
+        </div>
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Company Name</label>
+                <div class="input-wrapper">
+                    <input type="text" id="companyName"
+                           placeholder="e.g. Acme Manufacturing"
+                           autocomplete="organization"
+                           autocorrect="off"
+                           autocapitalize="words">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Industry Sector</label>
+                <select id="industry">
+                    <option value="automotive">Automotive</option>
+                    <option value="electronics">Electronics / Semiconductor</option>
+                    <option value="medical">Medical Devices</option>
+                    <option value="pharmaceutical">Pharmaceutical</option>
+                    <option value="aerospace">Aerospace & Defense</option>
+                    <option value="general">General Manufacturing</option>
+                    <option value="fmcg">FMCG / Packaging</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Current Marking Method</label>
+                <select id="currentMethod">
+                    <option value="inkjet">Inkjet Printing</option>
+                    <option value="dot_peen">Dot Peen Marking</option>
+                    <option value="label">Label / Sticker</option>
+                    <option value="green_laser">Green Laser</option>
+                    <option value="fiber_laser">Fiber Laser</option>
+                    <option value="co2_laser">CO2 Laser</option>
+                    <option value="UV">UV Laser</option>
+                    <option value="manual">Manual Marking</option>
+                    <option value="none">No Existing System</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Select Currency</label>
+                <select id="currency">
+                    <option value="₹">₹ Indian Rupee (INR)</option>
+                    <option value="$">$ US Dollar (USD)</option>
+                    <option value="€">€ Euro (EUR)</option>
+                    <option value="¥">¥ Japanese Yen (JPY)</option>
+                    <option value="£">£ British Pound (GBP)</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== STEP 2: PRODUCTION DATA ===== -->
+    <div class="section-card">
+        <div class="section-title">
+            <div class="step-badge">2</div>
+            Current Production Data
+        </div>
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Parts Marked Per Day</label>
+                <div class="input-wrapper">
+                    <input type="number" id="partsPerDay" value="1000" min="1"
+                           inputmode="numeric" pattern="[0-9]*">
+                    <span class="unit-badge">pcs</span>
+                </div>
+                <div class="field-hint">Total pieces marked in one working day</div>
+            </div>
+            <div class="form-group">
+                <label>Working Days Per Year</label>
+                <div class="input-wrapper">
+                    <input type="number" id="workingDays" value="250" min="1" max="365"
+                           inputmode="numeric" pattern="[0-9]*">
+                    <span class="unit-badge">days</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Current Reject Rate</label>
+                <div class="input-wrapper">
+                    <input type="number" id="rejectRate" value="3" min="0" max="100" step="0.1"
+                           inputmode="decimal">
+                    <span class="unit-badge">%</span>
+                </div>
+                <div class="field-hint">% of parts rejected due to marking issues</div>
+            </div>
+            <div class="form-group">
+                <label>Cost Per Rejected Part</label>
+                <div class="input-wrapper">
+                    <input type="number" id="costPerReject" value="500" min="0"
+                           inputmode="numeric" pattern="[0-9]*">
+                    <span class="unit-badge">unit</span>
+                </div>
+                <div class="field-hint">Material + labor cost per rejected piece</div>
+            </div>
+            <div class="form-group">
+                <label>Marking Time Per Part</label>
+                <div class="input-wrapper">
+                    <input type="number" id="currentMarkingTime" value="10" min="0.1" step="0.1"
+                           inputmode="decimal">
+                    <span class="unit-badge">sec</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Operators Assigned to Marking</label>
+                <div class="input-wrapper">
+                    <input type="number" id="operators" value="2" min="0"
+                           inputmode="numeric" pattern="[0-9]*">
+                    <span class="unit-badge">no.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== STEP 3: CURRENT COSTS ===== -->
+    <div class="section-card">
+        <div class="section-title">
+            <div class="step-badge">3</div>
+            Current Annual Operating Costs
+        </div>
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Operator Hourly Wage</label>
+                <div class="input-wrapper">
+                    <input type="number" id="hourlyWage" value="150" min="0"
+                           inputmode="numeric" pattern="[0-9]*">
+                    <span class="unit-badge">/hr</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Annual Consumables Cost</label>
+                <div class="input-wrapper">
+                    <input type="number" id="consumablesCost" value="50000" min="0"
+                           inputmode="numeric" pattern="[0-9]*">
+                    <span class="unit-badge">/yr</span>
+                </div>
+                <div class="field-hint">Ink, labels, ribbons, desiccants, etc.</div>
+            </div>
+            <div class="form-group">
+                <label>Annual Maintenance Cost</label>
+                <div class="input-wrapper">
+                    <input type="number" id="maintenanceCost" value="30000" min="0"
+                           inputmode="numeric" pattern="[0-9]*">
+                    <span class="unit-badge">/yr</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Annual Machine Downtime</label>
+                <div class="input-wrapper">
+                    <input type="number" id="downtimeHours" value="50" min="0"
+                           inputmode="numeric" pattern="[0-9]*">
+                    <span class="unit-badge">hrs/yr</span>
+                </div>
+                <div class="field-hint">Total marking system downtime hours per year</div>
+            </div>
+            <div class="form-group">
+                <label>Cost Per Hour of Downtime</label>
+                <div class="input-wrapper">
+                    <input type="number" id="downtimeCostPerHr" value="5000" min="0"
+                           inputmode="numeric" pattern="[0-9]*">
+                    <span class="unit-badge">/hr</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Annual Repair Cost</label>
+                <div class="input-wrapper">
+                    <input type="number" id="reworkCost" value="20000" min="0"
+                           inputmode="numeric" pattern="[0-9]*">
+                    <span class="unit-badge">/yr</span>
+                </div>
+                <div class="field-hint">Cost for repairing marking defects & failures</div>
+            </div>
+
+            <!-- Electricity Sub-section -->
+            <div class="sub-section-label">⚡ Electricity / Energy Costs</div>
+
+            <div class="form-group">
+                <label>Current System Power Consumption</label>
+                <div class="input-wrapper">
+                    <input type="number" id="currentPower" value="0.5" min="0" step="0.01"
+                           inputmode="decimal">
+                    <span class="unit-badge">kW</span>
+                </div>
+                <div class="field-hint">Average power draw of current marking system</div>
+            </div>
+            <div class="form-group">
+                <label>Machine Operating Hours Per Day</label>
+                <div class="input-wrapper">
+                    <input type="number" id="machineHoursPerDay" value="8" min="0" max="24" step="0.5"
+                           inputmode="decimal">
+                    <span class="unit-badge">hrs/day</span>
+                </div>
+                <div class="field-hint">Actual machine run hours per shift/day</div>
+            </div>
+            <div class="form-group">
+                <label>Electricity Rate</label>
+                <div class="input-wrapper">
+                    <input type="number" id="electricityRate" value="8" min="0" step="0.01"
+                           inputmode="decimal">
+                    <span class="unit-badge">/kWh</span>
+                </div>
+                <div class="field-hint">Cost per unit (e.g. ₹8/kWh for India)</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== STEP 4: NEW SYSTEM INVESTMENT ===== -->
+    <div class="section-card">
+        <div class="section-title">
+            <div class="step-badge">4</div>
+            Keyence Laser System — Investment Details
+        </div>
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Laser System Model</label>
+                <select id="laserType">
+                    <option value="UV">UV Laser — MD-U2000 Series</option>
+                    <option value="Hybrid">Hybrid Laser — MD-X2000 Series</option>
+                    <option value="fiber">Fiber Laser — MD-F Series</option>
+                    <option value="CO2">CO2 Laser — ML-Z Series</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>System Purchase Price</label>
+                <div class="input-wrapper">
+                    <input type="number" id="systemPrice" value="0" min="0"
+                           inputmode="numeric" pattern="[0-9]*">
+                    <span class="unit-badge">total</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Installation & Integration Cost</label>
+                <div class="input-wrapper">
+                    <input type="number" id="installationCost" value="0" min="0"
+                           inputmode="numeric" pattern="[0-9]*">
+                    <span class="unit-badge">total</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Training & Commissioning Cost</label>
+                <div class="input-wrapper">
+                    <input type="number" id="trainingCost" value="0" min="0"
+                           inputmode="numeric" pattern="[0-9]*">
+                    <span class="unit-badge">total</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>New System Annual Maintenance</label>
+                <div class="input-wrapper">
+                    <input type="number" id="newMaintenanceCost" value="0" min="0"
+                           inputmode="numeric" pattern="[0-9]*">
+                    <span class="unit-badge">/yr</span>
+                </div>
+                <div class="field-hint">Keyence Laser Markers typically require minimal maintenance</div>
+            </div>
+            <div class="form-group">
+                <label>Expected System Lifetime</label>
+                <div class="input-wrapper">
+                    <input type="number" id="systemLifetime" value="7" min="1" max="20"
+                           inputmode="numeric" pattern="[0-9]*">
+                    <span class="unit-badge">yrs</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== STEP 5: EXPECTED IMPROVEMENTS ===== -->
+    <div class="section-card">
+        <div class="section-title">
+            <div class="step-badge">5</div>
+            Expected Performance Improvements
+        </div>
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Expected New Reject Rate</label>
+                <div class="input-wrapper">
+                    <input type="number" id="newRejectRate" value="0.2" min="0" max="100" step="0.1"
+                           inputmode="decimal">
+                    <span class="unit-badge">%</span>
+                </div>
+                <div class="field-hint">UV laser typical: 0.1–0.5%</div>
+            </div>
+            <div class="form-group">
+                <label>New Marking Time Per Part</label>
+                <div class="input-wrapper">
+                    <input type="number" id="newMarkingTime" value="3" min="0.1" step="0.1"
+                           inputmode="decimal">
+                    <span class="unit-badge">sec</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Operators Required (New System)</label>
+                <div class="input-wrapper">
+                    <input type="number" id="newOperators" value="1" min="0"
+                           inputmode="numeric" pattern="[0-9]*">
+                    <span class="unit-badge">no.</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Expected Downtime Reduction</label>
+                <div class="input-wrapper">
+                    <input type="number" id="downtimeReduction" value="80" min="0" max="100"
+                           inputmode="numeric" pattern="[0-9]*">
+                    <span class="unit-badge">%</span>
+                </div>
+                <div class="field-hint">Keyence systems: typically 70–90% reduction</div>
+            </div>
+            <div class="form-group">
+                <label>New Annual Consumables Cost</label>
+                <div class="input-wrapper">
+                    <input type="number" id="newConsumablesCost" value="5000" min="0"
+                           inputmode="numeric" pattern="[0-9]*">
+                    <span class="unit-badge">/yr</span>
+                </div>
+                <div class="field-hint">Near zero for Keyence laser markers</div>
+            </div>
+            <div class="form-group">
+                <label>Expected New Annual Repair Cost</label>
+                <div class="input-wrapper">
+                    <input type="number" id="newReworkCost" value="2000" min="0"
+                           inputmode="numeric" pattern="[0-9]*">
+                    <span class="unit-badge">/yr</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>New System Power Consumption</label>
+                <div class="input-wrapper">
+                    <input type="number" id="newPower" value="0.2" min="0" step="0.01"
+                           inputmode="decimal">
+                    <span class="unit-badge">kW</span>
+                </div>
+                <div class="field-hint">Keyence laser markers: typically 0.1–0.5 kW</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Calculate Button -->
+    <button class="calculate-btn" id="calcBtn" onclick="calculateROI()">
+        🔢 &nbsp; Calculate ROI Now
+    </button>
+
+    <!-- Progress bar under button -->
+    <div class="calc-progress-wrap" id="calcProgressWrap">
+        <div class="calc-progress-fill" id="calcProgressFill"></div>
+    </div>
+
+    <!-- ===== RESULTS SECTION ===== -->
+    <div class="results-section" id="resultsSection">
+
+        <div class="alert-box">
+            ℹ️ <span>Results below are based on your inputs. For a detailed site-specific assessment, contact your Keyence representative.</span>
+        </div>
+
+        <!-- Summary Banner -->
+        <div class="summary-banner">
+            <div class="banner-item">
+                <div class="banner-value" id="bannerSavings">—</div>
+                <div class="banner-label">Annual Savings</div>
+            </div>
+            <div class="banner-divider"></div>
+            <div class="banner-item">
+                <div class="banner-value" id="bannerPayback">—</div>
+                <div class="banner-label">Payback Period</div>
+            </div>
+            <div class="banner-divider"></div>
+            <div class="banner-item">
+                <div class="banner-value" id="bannerROI5">—</div>
+                <div class="banner-label">5-Year ROI</div>
+            </div>
+            <div class="banner-divider"></div>
+            <div class="banner-item">
+                <div class="banner-value" id="bannerProductivity">—</div>
+                <div class="banner-label">Speed Improvement</div>
+            </div>
+        </div>
+
+        <!-- Recommendation Box -->
+        <div class="recommendation-box">
+            <h3 id="recTitle">📊 ROI Analysis Result</h3>
+            <div class="rec-grid" id="recGrid"></div>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="kpi-grid">
+            <div class="kpi-card green">
+                <div class="kpi-icon">💰</div>
+                <div class="kpi-value" id="kpiAnnualSavings">—</div>
+                <div class="kpi-label">Annual Savings</div>
+                <div class="kpi-sublabel">vs. current method</div>
+            </div>
+            <div class="kpi-card blue">
+                <div class="kpi-icon">⏱️</div>
+                <div class="kpi-value" id="kpiPayback">—</div>
+                <div class="kpi-label">Payback Period</div>
+                <div class="kpi-sublabel">To recover full investment</div>
+            </div>
+            <div class="kpi-card green">
+                <div class="kpi-icon">📈</div>
+                <div class="kpi-value" id="kpiROI3">—</div>
+                <div class="kpi-label">3-Year ROI</div>
+                <div class="kpi-sublabel">Net return on investment</div>
+            </div>
+            <div class="kpi-card green">
+                <div class="kpi-icon">🚀</div>
+                <div class="kpi-value" id="kpiROI5">—</div>
+                <div class="kpi-label">5-Year ROI</div>
+                <div class="kpi-sublabel">Net return on investment</div>
+            </div>
+            <div class="kpi-card orange">
+                <div class="kpi-icon">🗑️</div>
+                <div class="kpi-value" id="kpiRejectSavings">—</div>
+                <div class="kpi-label">Reject Savings</div>
+                <div class="kpi-sublabel">Annual scrap cost reduction</div>
+            </div>
+            <div class="kpi-card blue">
+                <div class="kpi-icon">⚡</div>
+                <div class="kpi-value" id="kpiProductivity">—</div>
+                <div class="kpi-label">Speed Gain</div>
+                <div class="kpi-sublabel">Marking time improvement</div>
+            </div>
+            <div class="kpi-card teal">
+                <div class="kpi-icon">🔌</div>
+                <div class="kpi-value" id="kpiElectricitySavings">—</div>
+                <div class="kpi-label">Energy Savings</div>
+                <div class="kpi-sublabel">Annual electricity cost reduction</div>
+            </div>
+        </div>
+
+        <!-- Charts Row 1 -->
+        <div class="charts-grid">
+            <div class="chart-card">
+                <div class="chart-title">📊 Annual Operating Cost — Before vs After</div>
+                <canvas id="costComparisonChart"></canvas>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">📈 Cumulative Net Savings Over System Lifetime</div>
+                <canvas id="cumulativeSavingsChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Charts Row 2 -->
+        <div class="charts-grid">
+            <div class="chart-card">
+                <div class="chart-title">🥧 Current Annual Cost Breakdown</div>
+                <canvas id="currentPieChart"></canvas>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">🥧 New System Annual Cost Breakdown</div>
+                <canvas id="newPieChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Breakdown Table -->
+        <div class="section-card">
+            <div class="section-title">📋 Detailed Cost Savings Breakdown</div>
+            <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+                <table class="breakdown-table">
+                    <thead>
+                        <tr>
+                            <th>Cost Category</th>
+                            <th>Current Annual Cost</th>
+                            <th>New Annual Cost</th>
+                            <th>Annual Savings</th>
+                            <th>% Reduction</th>
+                        </tr>
+                    </thead>
+                    <tbody id="breakdownBody"></tbody>
+                    <tfoot  id="breakdownFoot"></tfoot>
+                </table>
+            </div>
+        </div>
+
+        <!-- Buttons -->
+        <div class="btn-group">
+            <button class="btn-print" onclick="window.print()">🖨️ Print / Export as PDF</button>
+            <button class="btn-reset" onclick="resetCalculator()">🔄 Reset Calculator</button>
+        </div>
+
+    </div><!-- End Results -->
+
+</div><!-- End Container -->
+
+<!-- ========== FOOTER ========== -->
+<footer>
+    <p><strong>From Laser Marking Technical Division</strong></p>
+    <p style="margin-top: 6px;">For reference purposes only. Actual results depend on specific application conditions. Always consult your Keyence representative for a detailed assessment.</p>
+</footer>
+
+<!-- ========== JAVASCRIPT ========== -->
+<script>
+    let chartInstances = {};
+
+    function fmt(value, currency) {
+        if (!currency) currency = document.getElementById('currency').value;
+        const abs = Math.abs(value);
+        let formatted;
+        if (currency === '₹') {
+            if (abs >= 10000000)    formatted = currency + (value / 10000000).toFixed(2) + ' Cr';
+            else if (abs >= 100000) formatted = currency + (value / 100000).toFixed(2) + ' L';
+            else if (abs >= 1000)   formatted = currency + (value / 1000).toFixed(1) + ' K';
+            else                    formatted = currency + value.toFixed(0);
+        } else {
+            if (abs >= 1000000)     formatted = currency + (value / 1000000).toFixed(2) + 'M';
+            else if (abs >= 1000)   formatted = currency + (value / 1000).toFixed(1) + 'K';
+            else                    formatted = currency + value.toFixed(0);
+        }
+        return formatted;
+    }
+
+    function destroyCharts() {
+        Object.values(chartInstances).forEach(c => { if (c) c.destroy(); });
+        chartInstances = {};
+    }
+
+    function showToast() {
+        const toast = document.getElementById('calcToast');
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 4500);
+    }
+
+    function calculateROI() {
+        const btn          = document.getElementById('calcBtn');
+        const progressWrap = document.getElementById('calcProgressWrap');
+        const progressFill = document.getElementById('calcProgressFill');
+
+        btn.disabled = true;
+        btn.classList.add('loading');
+        btn.innerHTML = '<span class="btn-spinner"></span> Calculating ROI...';
+
+        progressWrap.classList.add('active');
+        progressFill.style.width = '0%';
+        setTimeout(() => { progressFill.style.width = '75%'; }, 60);
+
+        setTimeout(() => {
+            progressFill.style.width = '100%';
+            setTimeout(() => {
+                runCalculation();
+
+                btn.disabled = false;
+                btn.classList.remove('loading');
+                btn.classList.add('success');
+                btn.innerHTML = '✅ &nbsp; ROI Calculated! Recalculate?';
+
+                progressWrap.classList.remove('active');
+                progressFill.style.width = '0%';
+
+                showToast();
+
+                setTimeout(() => {
+                    btn.classList.remove('success');
+                    btn.innerHTML = '🔢 &nbsp; Calculate ROI Now';
+                }, 5000);
+            }, 200);
+        }, 850);
+    }
+
+    function runCalculation() {
+        const currency           = document.getElementById('currency').value;
+        const partsPerDay        = +document.getElementById('partsPerDay').value        || 0;
+        const workingDays        = +document.getElementById('workingDays').value        || 250;
+        const rejectRate         = +document.getElementById('rejectRate').value         || 0;
+        const costPerReject      = +document.getElementById('costPerReject').value      || 0;
+        const markingTimeCur     = +document.getElementById('currentMarkingTime').value || 1;
+        const operators          = +document.getElementById('operators').value          || 0;
+        const hourlyWage         = +document.getElementById('hourlyWage').value         || 0;
+        const consumables        = +document.getElementById('consumablesCost').value    || 0;
+        const maintenance        = +document.getElementById('maintenanceCost').value    || 0;
+        const downtimeHrs        = +document.getElementById('downtimeHours').value      || 0;
+        const downtimeCostHr     = +document.getElementById('downtimeCostPerHr').value  || 0;
+        const repair             = +document.getElementById('reworkCost').value         || 0;
+        const currentPower       = +document.getElementById('currentPower').value       || 0;
+        const machineHoursPerDay = +document.getElementById('machineHoursPerDay').value || 8;
+        const electricityRate    = +document.getElementById('electricityRate').value    || 0;
+        const newPower           = +document.getElementById('newPower').value           || 0;
+        const systemPrice        = +document.getElementById('systemPrice').value        || 0;
+        const installCost        = +document.getElementById('installationCost').value   || 0;
+        const trainCost          = +document.getElementById('trainingCost').value       || 0;
+        const newMaintenance     = +document.getElementById('newMaintenanceCost').value || 0;
+        const lifetime           = +document.getElementById('systemLifetime').value     || 7;
+        const newRejectRate      = +document.getElementById('newRejectRate').value      || 0;
+        const newMarkingTime     = +document.getElementById('newMarkingTime').value     || 1;
+        const newOperators       = +document.getElementById('newOperators').value       || 0;
+        const downtimeReduction  = +document.getElementById('downtimeReduction').value  || 0;
+        const newConsumables     = +document.getElementById('newConsumablesCost').value || 0;
+        const newRepair          = +document.getElementById('newReworkCost').value      || 0;
+        const laserType          = document.getElementById('laserType').value;
+        const companyName        = document.getElementById('companyName').value || 'Your Company';
+
+        const partsPerYear        = partsPerDay * workingDays;
+        const markingHrsPerYear   = (partsPerYear * markingTimeCur) / 3600;
+        const newMarkingHrsPerYr  = (partsPerYear * newMarkingTime) / 3600;
+        const annualMachineHours  = machineHoursPerDay * workingDays;
+        const curElectricityCost  = currentPower * annualMachineHours * electricityRate;
+        const newElectricityCost  = newPower     * annualMachineHours * electricityRate;
+        const electricitySavings  = curElectricityCost - newElectricityCost;
+
+        const curRejectCost   = partsPerYear * (rejectRate / 100) * costPerReject;
+        const curLaborCost    = operators * markingHrsPerYear * hourlyWage;
+        const curDowntimeCost = downtimeHrs * downtimeCostHr;
+        const curTotal        = curRejectCost + curLaborCost + consumables + maintenance
+                              + curDowntimeCost + repair + curElectricityCost;
+
+        const newRejectCost   = partsPerYear * (newRejectRate / 100) * costPerReject;
+        const newLaborCost    = newOperators * newMarkingHrsPerYr * hourlyWage;
+        const newDowntimeCost = curDowntimeCost * (1 - downtimeReduction / 100);
+        const newTotal        = newRejectCost + newLaborCost + newConsumables + newMaintenance
+                              + newDowntimeCost + newRepair + newElectricityCost;
+
+        const totalInvestment = systemPrice + installCost + trainCost;
+        const annualSavings   = curTotal - newTotal;
+        const paybackMonths   = annualSavings > 0 ? (totalInvestment / annualSavings) * 12 : Infinity;
+        const rejectSavings   = curRejectCost - newRejectCost;
+        const laborSavings    = curLaborCost  - newLaborCost;
+        const consumSavings   = consumables   - newConsumables;
+        const roi3            = totalInvestment > 0 ? ((annualSavings * 3) - totalInvestment) / totalInvestment * 100 : 0;
+        const roi5            = totalInvestment > 0 ? ((annualSavings * 5) - totalInvestment) / totalInvestment * 100 : 0;
+        const productivity    = markingTimeCur > 0 ? ((markingTimeCur - newMarkingTime) / markingTimeCur) * 100 : 0;
+
+        let paybackDisplay;
+        if (!isFinite(paybackMonths))  paybackDisplay = 'N/A';
+        else if (paybackMonths < 1)    paybackDisplay = '< 1 mo';
+        else if (paybackMonths < 12)   paybackDisplay = paybackMonths.toFixed(1) + ' mo';
+        else                           paybackDisplay = (paybackMonths / 12).toFixed(1) + ' yrs';
+
+        const laserNames = {
+            UV: 'UV Laser — MD-U2000', Hybrid: 'Hybrid Laser — MD-X2000',
+            fiber: 'Fiber Laser — MD-F', CO2: 'CO2 Laser — ML-Z'
+        };
+        const laserName = laserNames[laserType] || 'Laser System';
+
+        document.getElementById('bannerSavings').textContent      = fmt(annualSavings);
+        document.getElementById('bannerPayback').textContent      = paybackDisplay;
+        document.getElementById('bannerROI5').textContent         = roi5.toFixed(0) + '%';
+        document.getElementById('bannerProductivity').textContent = productivity.toFixed(0) + '%';
+
+        document.getElementById('kpiAnnualSavings').textContent      = fmt(annualSavings);
+        document.getElementById('kpiPayback').textContent            = paybackDisplay;
+        document.getElementById('kpiROI3').textContent               = roi3.toFixed(1) + '%';
+        document.getElementById('kpiROI5').textContent               = roi5.toFixed(1) + '%';
+        document.getElementById('kpiRejectSavings').textContent      = fmt(rejectSavings);
+        document.getElementById('kpiProductivity').textContent       = productivity.toFixed(1) + '%';
+        document.getElementById('kpiElectricitySavings').textContent = fmt(electricitySavings);
+
+        document.getElementById('recTitle').textContent = `📊 ${laserName} ROI Report — ${companyName}`;
+        const recs = [];
+        if      (paybackMonths < 18)       recs.push({ icon: '🟢', text: `Excellent ROI — Full payback in ${paybackDisplay}` });
+        else if (paybackMonths < 36)       recs.push({ icon: '🟡', text: `Good investment — Payback in ${paybackDisplay}` });
+        else if (isFinite(paybackMonths))  recs.push({ icon: '🔴', text: `Extended payback (${paybackDisplay}) — review volume or pricing` });
+        else                               recs.push({ icon: '⚠️', text: 'No net savings projected — review input values' });
+        if      (productivity > 50)        recs.push({ icon: '⚡', text: `${productivity.toFixed(0)}% faster marking dramatically increases throughput` });
+        else if (productivity > 0)         recs.push({ icon: '⚡', text: `${productivity.toFixed(0)}% improvement in marking cycle time` });
+        if (rejectSavings > 0)      recs.push({ icon: '♻️', text: `${fmt(rejectSavings)}/yr saved from reject reduction (${rejectRate}% → ${newRejectRate}%)` });
+        if (laborSavings > 0)       recs.push({ icon: '👷', text: `${fmt(laborSavings)}/yr saved in labor costs` });
+        if (consumSavings > 0)      recs.push({ icon: '🔧', text: `${fmt(consumSavings)}/yr saved on consumables` });
+        if (electricitySavings > 0) recs.push({ icon: '🔌', text: `${fmt(electricitySavings)}/yr saved on electricity (${currentPower} kW → ${newPower} kW)` });
+        if (roi5 > 100)             recs.push({ icon: '🚀', text: `Outstanding 5-year ROI of ${roi5.toFixed(0)}% — strong long-term investment` });
+
+        document.getElementById('recGrid').innerHTML = recs.map(r =>
+            `<div class="rec-item"><span class="rec-icon">${r.icon}</span><span>${r.text}</span></div>`
+        ).join('');
+
+        const rows = [
+            ['⚠️ Reject / Scrap Cost', curRejectCost,      newRejectCost],
+            ['👷 Labor Cost (Marking)', curLaborCost,       newLaborCost],
+            ['🔧 Consumables',          consumables,        newConsumables],
+            ['🛠️ Maintenance',          maintenance,        newMaintenance],
+            ['⏸️ Downtime Cost',        curDowntimeCost,    newDowntimeCost],
+            ['🔩 Repair Cost',          repair,             newRepair],
+            ['⚡ Electricity Cost',      curElectricityCost, newElectricityCost],
+        ];
+
+        document.getElementById('breakdownBody').innerHTML = rows.map(r => {
+            const savings = r[1] - r[2];
+            const pct = r[1] > 0 ? ((savings / r[1]) * 100).toFixed(0) + '%' : '—';
+            const cls = savings >= 0 ? 'positive-val' : 'negative-val';
+            return `<tr>
+                <td>${r[0]}</td>
+                <td>${fmt(r[1])}</td>
+                <td>${fmt(r[2])}</td>
+                <td class="${cls}">${savings >= 0 ? '+' : ''}${fmt(savings)}</td>
+                <td class="${cls}">${savings >= 0 ? pct : '▲'}</td>
+            </tr>`;
+        }).join('');
+
+        const totalSav = curTotal - newTotal;
+        const totalPct = curTotal > 0 ? ((totalSav / curTotal) * 100).toFixed(0) + '%' : '—';
+        document.getElementById('breakdownFoot').innerHTML = `<tr>
+            <td>📊 TOTAL ANNUAL COST</td>
+            <td>${fmt(curTotal)}</td>
+            <td>${fmt(newTotal)}</td>
+            <td class="${totalSav >= 0 ? 'positive-val' : 'negative-val'}">${totalSav >= 0 ? '+' : ''}${fmt(totalSav)}</td>
+            <td class="${totalSav >= 0 ? 'positive-val' : 'negative-val'}">${totalSav >= 0 ? totalPct : '▲'}</td>
+        </tr>`;
+
+        destroyCharts();
+
+        chartInstances.bar = new Chart(document.getElementById('costComparisonChart'), {
+            type: 'bar',
+            data: {
+                labels: ['Current System', laserName],
+                datasets: [
+                    { label: 'Reject Cost',  data: [curRejectCost,      newRejectCost],       backgroundColor: '#cc0000' },
+                    { label: 'Labor',         data: [curLaborCost,       newLaborCost],         backgroundColor: '#ff6600' },
+                    { label: 'Consumables',   data: [consumables,        newConsumables],        backgroundColor: '#ffaa00' },
+                    { label: 'Maintenance',   data: [maintenance,        newMaintenance],        backgroundColor: '#0066cc' },
+                    { label: 'Downtime',      data: [curDowntimeCost,    newDowntimeCost],       backgroundColor: '#6600cc' },
+                    { label: 'Repair',        data: [repair,             newRepair],             backgroundColor: '#00aa44' },
+                    { label: 'Electricity',   data: [curElectricityCost, newElectricityCost],    backgroundColor: '#009688' },
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } },
+                    tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + fmt(ctx.parsed.y) } }
+                },
+                scales: {
+                    x: { stacked: true },
+                    y: { stacked: true, ticks: { callback: v => fmt(v), maxTicksLimit: 6 } }
+                }
+            }
+        });
+
+        const yearLabels = Array.from({ length: lifetime + 1 }, (_, i) => 'Y' + i);
+        const cumData    = yearLabels.map((_, i) => (annualSavings * i) - totalInvestment);
+
+        chartInstances.line = new Chart(document.getElementById('cumulativeSavingsChart'), {
+            type: 'line',
+            data: {
+                labels: yearLabels,
+                datasets: [
+                    {
+                        label: 'Cumulative Net Savings',
+                        data: cumData,
+                        borderColor: '#cc0000',
+                        backgroundColor: 'rgba(204,0,0,0.08)',
+                        fill: true, tension: 0.4, borderWidth: 2.5,
+                        pointBackgroundColor: '#cc0000',
+                        pointRadius: 3,
+                    },
+                    {
+                        label: 'Break-Even Line',
+                        data: new Array(lifetime + 1).fill(0),
+                        borderColor: '#aaa',
+                        borderDash: [6, 4],
+                        borderWidth: 1.5,
+                        pointRadius: 0,
+                        fill: false,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } },
+                    tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + fmt(ctx.parsed.y) } }
+                },
+                scales: { y: { ticks: { callback: v => fmt(v), maxTicksLimit: 6 } } }
+            }
+        });
+
+        function makePie(canvasId, dataArr, labelArr) {
+            return new Chart(document.getElementById(canvasId), {
+                type: 'doughnut',
+                data: {
+                    labels: labelArr,
+                    datasets: [{
+                        data: dataArr,
+                        backgroundColor: ['#cc0000','#ff6600','#ffaa00','#0066cc','#6600cc','#00aa44','#009688'],
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12 } },
+                        tooltip: { callbacks: { label: ctx => ctx.label + ': ' + fmt(ctx.parsed) } }
+                    }
+                }
+            });
+        }
+
+        const pieLabels = ['Reject Cost','Labor','Consumables','Maintenance','Downtime','Repair','Electricity'];
+        chartInstances.pie1 = makePie('currentPieChart',
+            [curRejectCost, curLaborCost, consumables, maintenance, curDowntimeCost, repair, curElectricityCost], pieLabels);
+        chartInstances.pie2 = makePie('newPieChart',
+            [newRejectCost, newLaborCost, newConsumables, newMaintenance, newDowntimeCost, newRepair, newElectricityCost], pieLabels);
+
+        const resultsEl = document.getElementById('resultsSection');
+        resultsEl.classList.add('visible');
+        setTimeout(() => resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+    }
+
+    function resetCalculator() {
+        destroyCharts();
+        document.getElementById('resultsSection').classList.remove('visible');
+        const btn = document.getElementById('calcBtn');
+        btn.disabled = false;
+        btn.classList.remove('loading', 'success');
+        btn.innerHTML = '🔢 &nbsp; Calculate ROI Now';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+</script>
+
+</body>
+</html>
