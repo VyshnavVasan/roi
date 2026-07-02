@@ -1,1625 +1,982 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-
-    <!-- ===== MOBILE META TAGS ===== -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#cc0000">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="mobile-web-app-capable" content="yes">
-
-    <title>Keyence Laser Marking ROI Calculator</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        /* ===== RESET ===== */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent; /* Remove blue flash on tap (iOS/Android) */
-            touch-action: manipulation;               /* Faster tap response, no double-tap zoom */
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f0f2f5;
-            color: #333;
-            -webkit-text-size-adjust: 100%; /* Prevent iOS font size auto-adjust */
-        }
-
-        /* ===== HEADER ===== */
-        header {
-            background: linear-gradient(135deg, #cc0000, #990000);
-            color: white;
-            padding: 25px 40px;
-            /* Safe area for iPhone notch */
-            padding-top: max(25px, env(safe-area-inset-top));
-            padding-left:  max(40px, env(safe-area-inset-left));
-            padding-right: max(40px, env(safe-area-inset-right));
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-        }
-
-        header h1 { font-size: 22px; font-weight: 700; }
-        header p   { font-size: 13px; opacity: 0.85; margin-top: 4px; }
-
-        .logo-text {
-            font-size: 26px;
-            font-weight: 900;
-            letter-spacing: 3px;
-            border: 3px solid white;
-            padding: 6px 14px;
-            border-radius: 4px;
-            white-space: nowrap;
-        }
-
-        /* ===== CONTAINER ===== */
-        .container {
-            max-width: 1200px;
-            margin: 30px auto;
-            padding: 0 20px;
-            /* Side safe areas for landscape iPhone */
-            padding-left:  max(20px, env(safe-area-inset-left));
-            padding-right: max(20px, env(safe-area-inset-right));
-        }
-
-        /* ===== PROGRESS BAR ===== */
-        .progress-bar {
-            display: flex;
-            justify-content: center;
-            gap: 8px;
-            margin-bottom: 30px;
-            flex-wrap: wrap;
-        }
-
-        .progress-step {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 12px;
-            font-weight: 600;
-            color: #aaa;
-        }
-
-        .progress-step .dot {
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            background: #ddd;
-            color: #999;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            font-weight: 700;
-        }
-
-        .progress-step.active .dot { background: #cc0000; color: white; }
-        .progress-step.active      { color: #cc0000; }
-        .connector { width: 30px; height: 2px; background: #ddd; align-self: center; }
-
-        /* ===== SECTION CARDS ===== */
-        .section-card {
-            background: white;
-            border-radius: 10px;
-            padding: 28px 32px;
-            margin-bottom: 22px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.07);
-            border-left: 5px solid #cc0000;
-            transition: box-shadow 0.2s;
-        }
-
-        .section-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.12); }
-
-        .section-title {
-            font-size: 17px;
-            font-weight: 700;
-            color: #cc0000;
-            margin-bottom: 22px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding-bottom: 12px;
-            border-bottom: 1px solid #f0f0f0;
-        }
-
-        .step-badge {
-            background: #cc0000;
-            color: white;
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
-            font-weight: 800;
-            flex-shrink: 0;
-        }
-
-        /* ===== FORMS ===== */
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 20px;
-        }
-
-        .form-group { display: flex; flex-direction: column; }
-
-        label {
-            font-size: 12px;
-            font-weight: 700;
-            color: #555;
-            margin-bottom: 7px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .input-wrapper {
-            position: relative;
-            display: flex;
-            align-items: center;
-        }
-
-        /* ===== INPUTS — font-size 16px CRITICAL for iOS no-zoom ===== */
-        input[type="number"],
-        input[type="text"],
-        select {
-            width: 100%;
-            padding: 11px 58px 11px 14px;
-            border: 2px solid #e8e8e8;
-            border-radius: 8px;
-            font-size: 16px;          /* ← CRITICAL: prevents iOS Safari auto-zoom on focus */
-            color: #333;
-            background: #fafafa;
-            transition: all 0.2s;
-            min-height: 48px;         /* Apple recommended minimum touch target */
-            -webkit-appearance: none; /* Remove iOS default styling */
-            appearance: none;
-        }
-
-        input[type="number"]:focus,
-        input[type="text"]:focus,
-        select:focus {
-            outline: none;
-            border-color: #cc0000;
-            background: white;
-            box-shadow: 0 0 0 4px rgba(204,0,0,0.08);
-        }
-
-        /* Custom dropdown arrow for select (replaces native removed by -webkit-appearance:none) */
-        select {
-            padding-right: 36px;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23999' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 14px center;
-            background-size: 10px;
-            cursor: pointer;
-        }
-
-        .unit-badge {
-            position: absolute;
-            right: 10px;
-            font-size: 11px;
-            font-weight: 700;
-            color: #999;
-            background: #f0f0f0;
-            padding: 3px 6px;
-            border-radius: 4px;
-            pointer-events: none;
-            white-space: nowrap;
-        }
-
-        /* Push unit badge right for select elements (they have their own arrow) */
-        select + .unit-badge { display: none; }
-
-        .field-hint {
-            font-size: 11px;
-            color: #999;
-            margin-top: 5px;
-            font-style: italic;
-        }
-
-        /* ===== ELECTRICITY DIVIDER ===== */
-        .sub-section-label {
-            grid-column: 1 / -1;
-            font-size: 12px;
-            font-weight: 700;
-            color: #009688;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            padding: 10px 14px 8px;
-            border-top: 2px dashed #e0f2f1;
-            border-radius: 6px;
-            margin-top: 6px;
-            background: #f5fffe;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        /* ===== CALCULATE BUTTON ===== */
-        .calculate-btn {
-            background: linear-gradient(135deg, #cc0000, #aa0000);
-            color: white;
-            border: none;
-            padding: 16px 60px;
-            font-size: 17px;
-            font-weight: 700;
-            border-radius: 10px;
-            cursor: pointer;
-            display: block;
-            margin: 30px auto 10px;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(204,0,0,0.35);
-            letter-spacing: 0.5px;
-            min-width: 290px;
-            min-height: 54px; /* Touch-friendly */
-        }
-
-        .calculate-btn:hover:not(:disabled) {
-            background: linear-gradient(135deg, #aa0000, #880000);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(204,0,0,0.45);
-        }
-
-        .calculate-btn:active:not(:disabled) {
-            transform: translateY(0px);  /* Press feedback on mobile */
-        }
-
-        .calculate-btn:disabled { cursor: not-allowed; opacity: 0.85; }
-
-        .calculate-btn.loading {
-            background: linear-gradient(135deg, #888, #666) !important;
-            transform: none !important;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important;
-        }
-
-        .calculate-btn.success {
-            background: linear-gradient(135deg, #00aa44, #007730) !important;
-            box-shadow: 0 4px 15px rgba(0,170,68,0.45) !important;
-        }
-
-        .btn-spinner {
-            display: inline-block;
-            width: 18px;
-            height: 18px;
-            border: 3px solid rgba(255,255,255,0.35);
-            border-top-color: white;
-            border-radius: 50%;
-            animation: btnSpin 0.75s linear infinite;
-            vertical-align: middle;
-            margin-right: 8px;
-        }
-
-        @keyframes btnSpin { to { transform: rotate(360deg); } }
-
-        /* ===== PROGRESS BAR UNDER BUTTON ===== */
-        .calc-progress-wrap {
-            display: none;
-            width: 290px;
-            height: 6px;
-            background: #e0e0e0;
-            border-radius: 3px;
-            margin: 0 auto 28px;
-            overflow: hidden;
-        }
-
-        .calc-progress-wrap.active { display: block; }
-
-        .calc-progress-fill {
-            height: 100%;
-            width: 0%;
-            background: linear-gradient(90deg, #cc0000, #ff5555);
-            border-radius: 3px;
-            transition: width 0.85s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        /* ===== TOAST ===== */
-        .calc-toast {
-            position: fixed;
-            bottom: 28px;
-            right: 28px;
-            background: #1b6b3a;
-            color: white;
-            padding: 15px 20px;
-            border-radius: 12px;
-            font-size: 14px;
-            font-weight: 600;
-            box-shadow: 0 6px 24px rgba(0,0,0,0.25);
-            transform: translateX(160px);
-            opacity: 0;
-            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-            z-index: 9999;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            max-width: 310px;
-        }
-
-        .calc-toast.show { transform: translateX(0); opacity: 1; }
-        .toast-icon { font-size: 22px; flex-shrink: 0; }
-
-        /* ===== RESULTS ===== */
-        .results-section { display: none; }
-        .results-section.visible { display: block; animation: fadeIn 0.5s ease; }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to   { opacity: 1; transform: translateY(0); }
-        }
-
-        /* ===== RECOMMENDATION BOX ===== */
-        .recommendation-box {
-            background: linear-gradient(135deg, #1a1a2e, #16213e);
-            color: white;
-            border-radius: 12px;
-            padding: 28px 32px;
-            margin-bottom: 25px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-        }
-
-        .recommendation-box h3 { font-size: 20px; margin-bottom: 18px; color: #fff; }
-
-        .rec-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 12px;
-        }
-
-        .rec-item {
-            background: rgba(255,255,255,0.08);
-            border-radius: 8px;
-            padding: 12px 16px;
-            font-size: 13px;
-            display: flex;
-            align-items: flex-start;
-            gap: 8px;
-            border-left: 3px solid #cc0000;
-        }
-
-        .rec-item .rec-icon { font-size: 16px; flex-shrink: 0; }
-
-        /* ===== KPI CARDS ===== */
-        .kpi-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 16px;
-            margin-bottom: 25px;
-        }
-
-        .kpi-card {
-            background: white;
-            border-radius: 10px;
-            padding: 22px 20px;
-            text-align: center;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.07);
-            transition: transform 0.2s;
-        }
-
-        .kpi-card:hover { transform: translateY(-3px); }
-        .kpi-card.green  { border-top: 4px solid #00aa44; }
-        .kpi-card.red    { border-top: 4px solid #cc0000; }
-        .kpi-card.blue   { border-top: 4px solid #0066cc; }
-        .kpi-card.orange { border-top: 4px solid #ff6600; }
-        .kpi-card.teal   { border-top: 4px solid #009688; }
-
-        .kpi-icon     { font-size: 28px; margin-bottom: 10px; }
-        .kpi-value    { font-size: 26px; font-weight: 800; color: #222; margin-bottom: 6px; line-height: 1; }
-        .kpi-label    { font-size: 12px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 0.4px; }
-        .kpi-sublabel { font-size: 11px; color: #aaa; margin-top: 4px; }
-
-        /* ===== CHARTS ===== */
-        .charts-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
-            gap: 22px;
-            margin-bottom: 22px;
-        }
-
-        .chart-card {
-            background: white;
-            border-radius: 10px;
-            padding: 24px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.07);
-            /* Prevent chart overflow on small screens */
-            min-width: 0;
-            overflow: hidden;
-        }
-
-        .chart-title {
-            font-size: 14px;
-            font-weight: 700;
-            color: #333;
-            margin-bottom: 18px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #f0f0f0;
-        }
-
-        /* ===== BREAKDOWN TABLE ===== */
-        .breakdown-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-
-        .breakdown-table th {
-            background: #f8f8f8;
-            padding: 13px 16px;
-            text-align: left;
-            font-weight: 700;
-            color: #555;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border-bottom: 2px solid #eee;
-            white-space: nowrap;
-        }
-
-        .breakdown-table td { padding: 11px 16px; border-bottom: 1px solid #f5f5f5; color: #333; }
-        .breakdown-table tr:hover td { background: #fafafa; }
-
-        .breakdown-table tfoot td {
-            font-weight: 800;
-            font-size: 15px;
-            background: #f0f0f0;
-            border-top: 2px solid #ddd;
-        }
-
-        .positive-val { color: #00aa44; font-weight: 700; }
-        .negative-val { color: #cc0000; font-weight: 700; }
-
-        /* ===== SUMMARY BANNER ===== */
-        .summary-banner {
-            background: linear-gradient(135deg, #cc0000, #990000);
-            color: white;
-            border-radius: 10px;
-            padding: 22px 28px;
-            margin-bottom: 22px;
-            display: flex;
-            align-items: center;
-            justify-content: space-around;
-            flex-wrap: wrap;
-            gap: 16px;
-        }
-
-        .banner-item   { text-align: center; }
-        .banner-value  { font-size: 28px; font-weight: 900; }
-        .banner-label  { font-size: 12px; opacity: 0.85; margin-top: 4px; }
-        .banner-divider{ width: 1px; height: 50px; background: rgba(255,255,255,0.3); }
-
-        /* ===== ACTION BUTTONS ===== */
-        .btn-group {
-            display: flex;
-            justify-content: center;
-            gap: 14px;
-            margin-top: 25px;
-            flex-wrap: wrap;
-        }
-
-        .btn-print {
-            background: #333;
-            color: white;
-            border: none;
-            padding: 13px 32px;
-            font-size: 14px;
-            font-weight: 700;
-            border-radius: 8px;
-            cursor: pointer;
-            min-height: 48px;
-            transition: background 0.2s;
-        }
-
-        .btn-print:hover { background: #555; }
-
-        .btn-reset {
-            background: white;
-            color: #cc0000;
-            border: 2px solid #cc0000;
-            padding: 13px 32px;
-            font-size: 14px;
-            font-weight: 700;
-            border-radius: 8px;
-            cursor: pointer;
-            min-height: 48px;
-            transition: all 0.2s;
-        }
-
-        .btn-reset:hover { background: #fff5f5; }
-
-        /* ===== ALERT BOX ===== */
-        .alert-box {
-            background: #fff8e1;
-            border: 1px solid #ffcc00;
-            border-radius: 8px;
-            padding: 14px 18px;
-            margin-bottom: 22px;
-            font-size: 13px;
-            color: #664400;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        /* ===== FOOTER ===== */
-        footer {
-            background: #1a1a1a;
-            color: #888;
-            text-align: center;
-            padding: 24px;
-            padding-bottom: max(24px, env(safe-area-inset-bottom));
-            font-size: 12px;
-            margin-top: 50px;
-        }
-
-        footer strong { color: #ccc; }
-
-        /* ===== SCROLLBAR ===== */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #f1f1f1; }
-        ::-webkit-scrollbar-thumb { background: #cc0000; border-radius: 3px; }
-
-        /* =============================================
-           MOBILE STYLES — 768px and below
-           Covers: iPhone, Android phones, small tablets
-        ============================================= */
-        @media (max-width: 768px) {
-
-            /* --- Header --- */
-            header {
-                flex-direction: column;
-                text-align: center;
-                gap: 12px;
-                padding: 16px 18px;
-                padding-top: max(20px, env(safe-area-inset-top));
-            }
-
-            header h1  { font-size: 17px; }
-            header p   { font-size: 11px; }
-            .logo-text { font-size: 20px; letter-spacing: 2px; padding: 5px 12px; }
-
-            /* --- Container --- */
-            .container {
-                margin: 14px auto;
-                padding: 0 12px;
-                padding-left:  max(12px, env(safe-area-inset-left));
-                padding-right: max(12px, env(safe-area-inset-right));
-            }
-
-            /* --- Hide desktop progress steps on mobile --- */
-            .progress-bar { display: none; }
-
-            /* --- Section cards --- */
-            .section-card  { padding: 16px 14px; margin-bottom: 14px; }
-            .section-title { font-size: 14px; gap: 8px; margin-bottom: 16px; }
-            .step-badge    { width: 26px; height: 26px; font-size: 12px; flex-shrink: 0; }
-
-            /* --- Single column form on mobile --- */
-            .form-grid {
-                grid-template-columns: 1fr !important;
-                gap: 16px;
-            }
-
-            /* --- Larger inputs for finger tapping --- */
-            input[type="number"],
-            input[type="text"],
-            select {
-                font-size: 16px !important; /* CRITICAL — prevents iOS zoom */
-                min-height: 52px;
-                padding: 14px 58px 14px 14px;
-                border-radius: 8px;
-            }
-
-            select {
-                padding-right: 40px;
-                background-position: right 14px center;
-            }
-
-            label       { font-size: 12px; margin-bottom: 6px; }
-            .field-hint { font-size: 10px; margin-top: 4px; }
-            .unit-badge { font-size: 10px; right: 8px; }
-
-            .sub-section-label {
-                font-size: 11px;
-                padding: 8px 12px 6px;
-            }
-
-            /* --- Full-width calculate button --- */
-            .calculate-btn {
-                width: 100%;
-                min-width: unset;
-                padding: 18px 20px;
-                font-size: 16px;
-                margin: 20px 0 8px;
-                min-height: 56px;
-                border-radius: 10px;
-            }
-
-            /* --- Full-width progress bar --- */
-            .calc-progress-wrap {
-                width: 100%;
-                margin: 0 0 20px;
-            }
-
-            /* --- Summary banner — vertical stack --- */
-            .summary-banner {
-                flex-direction: column;
-                padding: 18px 16px;
-                gap: 12px;
-                border-radius: 10px;
-            }
-
-            .banner-divider { display: none; }
-            .banner-value   { font-size: 24px; }
-            .banner-label   { font-size: 11px; }
-
-            /* --- Recommendation box --- */
-            .recommendation-box {
-                padding: 16px 14px;
-                margin-bottom: 16px;
-                border-radius: 10px;
-            }
-
-            .recommendation-box h3 { font-size: 15px; margin-bottom: 12px; }
-
-            .rec-grid {
-                grid-template-columns: 1fr !important;
-                gap: 8px;
-            }
-
-            .rec-item { font-size: 12px; padding: 10px 12px; }
-
-            /* --- KPI cards — 2 per row on mobile --- */
-            .kpi-grid {
-                grid-template-columns: repeat(2, 1fr) !important;
-                gap: 10px;
-                margin-bottom: 16px;
-            }
-
-            .kpi-card    { padding: 14px 10px; border-radius: 8px; }
-            .kpi-icon    { font-size: 22px; margin-bottom: 7px; }
-            .kpi-value   { font-size: 18px; margin-bottom: 4px; }
-            .kpi-label   { font-size: 9px; letter-spacing: 0.2px; }
-            .kpi-sublabel{ font-size: 8px; margin-top: 3px; }
-
-            /* --- Charts — single column, constrained height --- */
-            .charts-grid {
-                grid-template-columns: 1fr !important;
-                gap: 12px;
-                margin-bottom: 14px;
-            }
-
-            .chart-card   { padding: 14px 12px; }
-            .chart-title  { font-size: 12px; margin-bottom: 12px; padding-bottom: 8px; }
-            .chart-card canvas { max-height: 250px; }
-
-            /* --- Breakdown table — horizontal scroll --- */
-            .breakdown-table     { font-size: 11px; }
-            .breakdown-table th  { padding: 8px 10px; font-size: 9px; }
-            .breakdown-table td  { padding: 7px 10px; }
-            .breakdown-table tfoot td { font-size: 12px; }
-
-            /* --- Alert box --- */
-            .alert-box { font-size: 12px; padding: 12px 14px; gap: 8px; }
-
-            /* --- Action buttons — full width on mobile --- */
-            .btn-group {
-                flex-direction: column;
-                gap: 10px;
-                align-items: stretch;
-            }
-
-            .btn-print,
-            .btn-reset {
-                width: 100%;
-                padding: 15px 20px;
-                font-size: 15px;
-                text-align: center;
-                min-height: 52px;
-                border-radius: 8px;
-            }
-
-            /* --- Toast — safe area bottom --- */
-            .calc-toast {
-                right: 12px;
-                left: 12px;
-                bottom: max(16px, env(safe-area-inset-bottom));
-                max-width: 100%;
-                font-size: 13px;
-                transform: translateY(120px); /* Slide up from bottom on mobile */
-            }
-
-            .calc-toast.show { transform: translateY(0); }
-
-            /* --- Footer --- */
-            footer {
-                margin-top: 30px;
-                padding: 16px 16px;
-                padding-bottom: max(20px, env(safe-area-inset-bottom));
-                font-size: 11px;
-            }
-        }
-
-        /* =============================================
-           EXTRA SMALL PHONES — iPhone SE, Galaxy A series
-           Screen width 380px and below
-        ============================================= */
-        @media (max-width: 380px) {
-            header h1  { font-size: 14px; }
-            header p   { font-size: 10px; }
-            .logo-text { font-size: 17px; padding: 4px 10px; letter-spacing: 2px; }
-
-            .section-title { font-size: 13px; }
-            .step-badge    { width: 24px; height: 24px; font-size: 11px; }
-
-            .kpi-value  { font-size: 16px; }
-            .kpi-label  { font-size: 8px; }
-            .banner-value { font-size: 21px; }
-
-            .calculate-btn { font-size: 15px; padding: 16px 16px; }
-
-            .rec-item  { font-size: 11px; }
-            .chart-card canvas { max-height: 210px; }
-        }
-
-        /* =============================================
-           PRINT STYLES
-        ============================================= */
-        @media print {
-            header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .calculate-btn, .btn-print, .btn-reset, .progress-bar,
-            .calc-progress-wrap, .calc-toast { display: none !important; }
-            .results-section { display: block !important; }
-            .section-card    { box-shadow: none; border: 1px solid #ddd; }
-            body             { background: white; }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Keyence Laser Marker — ROI &amp; Competitive Selection</title>
+<style>
+:root{
+  --ink:#0d1828; --steel:#1c2a3e; --paper:#ffffff; --mist:#f3f6fb;
+  --panel:#fbfcfe; --line:#dbe2ee; --line-soft:#eaeff7;
+  --primary:#1552c9; --primary-deep:#0b3697; --primary-soft:#e8f0ff;
+  --laser:#ff5a1f; --laser-soft:#fff0e9; --laser-deep:#d8410d;
+  --good:#15803d; --good-soft:#e6f4ea; --bad:#d32f2f; --bad-soft:#fdecec;
+  --muted:#5b6b82; --muted-2:#8694a8;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono","Roboto Mono",Consolas,monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --nameplate:"Helvetica Neue",Arial,system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:var(--sans); color:var(--ink); background:var(--mist);
+  -webkit-font-smoothing:antialiased; line-height:1.5;
+}
+.wrap{max-width:1080px;margin:0 auto;padding:0 18px 80px}
+
+/* ---------- nameplate / labels ---------- */
+.eyebrow{
+  font-family:var(--nameplate); text-transform:uppercase;
+  letter-spacing:.18em; font-size:11px; font-weight:700; color:var(--muted-2);
+}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* ---------- header ---------- */
+.masthead{background:var(--ink);color:#fff;position:relative;overflow:hidden}
+.masthead .wrap{padding-top:34px;padding-bottom:30px}
+.beam{height:3px;background:linear-gradient(90deg,transparent,var(--laser) 30%,#ffd9c7 50%,var(--laser) 70%,transparent);opacity:.95}
+.reticle{position:absolute;right:-40px;top:-40px;width:230px;height:230px;border-radius:50%;
+  border:1px solid rgba(255,255,255,.10);}
+.reticle:before,.reticle:after{content:"";position:absolute;background:rgba(255,255,255,.10)}
+.reticle:before{left:50%;top:8%;bottom:8%;width:1px;transform:translateX(-.5px)}
+.reticle:after{top:50%;left:8%;right:8%;height:1px;transform:translateY(-.5px)}
+.reticle .dot{position:absolute;left:50%;top:50%;width:9px;height:9px;margin:-4.5px;border-radius:50%;background:var(--laser);box-shadow:0 0 14px var(--laser)}
+.brandrow{display:flex;align-items:center;gap:12px}
+.brandmark{font-family:var(--nameplate);font-weight:800;letter-spacing:.04em;font-size:15px}
+.brandmark .k{color:#fff} .brandmark .sub{color:var(--laser);}
+.masthead h1{font-family:var(--nameplate);font-weight:800;font-size:clamp(26px,5vw,40px);line-height:1.05;margin:16px 0 8px;letter-spacing:-.01em}
+.masthead p.lede{margin:0;max-width:620px;color:#b9c6db;font-size:15px}
+.tagstrip{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.tag{font-family:var(--mono);font-size:11px;letter-spacing:.02em;color:#dbe6f6;border:1px solid rgba(255,255,255,.16);
+  padding:5px 9px;border-radius:4px;background:rgba(255,255,255,.04)}
+.tag b{color:var(--laser);font-weight:700}
+
+/* ---------- section scaffolding ---------- */
+.step{margin-top:30px}
+.steptitle{display:flex;align-items:baseline;gap:12px;margin:0 0 14px}
+.stepno{font-family:var(--mono);font-size:12px;color:#fff;background:var(--primary);width:24px;height:24px;
+  display:flex;align-items:center;justify-content:center;border-radius:5px;flex:none;font-weight:700}
+.steptitle h2{font-family:var(--nameplate);font-size:19px;font-weight:800;margin:0;letter-spacing:-.01em}
+.steptitle .hint{color:var(--muted);font-size:13px;margin-left:auto;text-align:right}
+
+.card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:20px}
+.card+.card{margin-top:14px}
+
+/* ---------- config controls ---------- */
+.cfggrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+label.fld{display:block}
+.fld .lab{font-family:var(--nameplate);text-transform:uppercase;letter-spacing:.1em;font-size:10.5px;font-weight:700;color:var(--muted);margin-bottom:6px}
+.selstack{display:flex;flex-direction:column;gap:16px}
+.fld .lab2{display:block;font-family:var(--sans);font-size:15px;font-weight:700;color:var(--ink);margin-bottom:7px}
+select:disabled{background:var(--mist);color:var(--muted-2);cursor:not-allowed}
+select,input[type=number]{
+  width:100%;font-family:var(--sans);font-size:15px;color:var(--ink);background:#fff;
+  border:1.5px solid var(--line);border-radius:8px;padding:10px 11px;outline:none;
+}
+input[type=number]{font-family:var(--mono);font-variant-numeric:tabular-nums}
+select:focus,input:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}
+.matnote{margin-top:12px;background:var(--mist);border:1px dashed var(--line);border-radius:8px;padding:11px 13px;font-size:13px;color:var(--steel)}
+.matnote b{color:var(--ink)}
+
+.modelpair{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+.modelcard{border-radius:10px;padding:14px;border:1.5px solid}
+.modelcard.k{border-color:var(--primary);background:var(--primary-soft)}
+.modelcard.c{border-color:var(--line);background:var(--mist)}
+.modelcard .who{font-family:var(--nameplate);text-transform:uppercase;letter-spacing:.1em;font-size:10.5px;font-weight:800;margin-bottom:4px}
+.modelcard.k .who{color:var(--primary-deep)} .modelcard.c .who{color:var(--muted)}
+.modelcard .mname{font-family:var(--mono);font-size:16px;font-weight:700}
+.modelcard .mselect{font-family:var(--mono);font-size:15px;font-weight:700;margin:2px 0}
+.modelcard.k .mselect{border-color:var(--primary)}
+.modelcard .mselect:disabled{color:var(--muted-2);background:var(--mist);font-style:italic;font-weight:600}
+.modelcard .fam{font-size:12px;color:var(--muted);margin-top:2px}
+.gapflag{margin-top:8px;font-size:12px;color:var(--laser-deep);font-weight:600}
+
+/* ---------- input matrix ---------- */
+.inhead{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:0;align-items:end;margin-bottom:4px}
+.inhead .col{font-family:var(--nameplate);text-transform:uppercase;letter-spacing:.08em;font-size:11px;font-weight:800;padding:8px 10px}
+.inhead .k{color:var(--primary-deep)} .inhead .c{color:var(--muted)}
+.shared{margin-bottom:18px}
+.row{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:0;border-top:1px solid var(--line-soft);align-items:center}
+.row:hover{background:var(--mist)}
+.row .rl{padding:9px 10px;font-size:13.5px}
+.row .rl small{display:block;color:var(--muted-2);font-size:11px}
+.row .ri{padding:6px 8px}
+.row.shared-row{grid-template-columns:1.4fr 1fr;border-top:1px solid var(--line-soft)}
+.sub{font-family:var(--nameplate);text-transform:uppercase;letter-spacing:.1em;font-size:10.5px;font-weight:800;color:var(--muted);margin:16px 0 2px;padding-left:2px}
+.unit-inline{position:relative}
+.unit-inline .u{position:absolute;right:11px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted-2);font-family:var(--mono);pointer-events:none}
+
+.runbar{display:flex;gap:12px;align-items:center;margin-top:22px;flex-wrap:wrap}
+button.run{font-family:var(--nameplate);font-weight:800;letter-spacing:.04em;font-size:15px;color:#fff;
+  background:var(--primary);border:none;border-radius:10px;padding:14px 26px;cursor:pointer;
+  box-shadow:0 6px 16px rgba(21,82,201,.28);transition:transform .08s,box-shadow .15s}
+button.run:hover{box-shadow:0 8px 22px rgba(21,82,201,.36)}
+button.run:active{transform:translateY(1px)}
+button.ghost{font-family:var(--sans);font-size:13px;color:var(--muted);background:none;border:none;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.runbar .note{font-size:12px;color:var(--muted)}
+
+/* ---------- report ---------- */
+#report{display:none;margin-top:42px}
+.report-mast{background:var(--ink);color:#fff;border-radius:14px;padding:26px 26px 24px;position:relative;overflow:hidden}
+.report-mast .reticle{width:170px;height:170px;right:-30px;top:-30px}
+.report-mast .eyebrow{color:var(--laser)}
+.report-mast h2{font-family:var(--nameplate);font-weight:800;font-size:26px;margin:8px 0 4px;letter-spacing:-.01em}
+.report-mast .vs{font-family:var(--mono);font-size:14px;color:#cdd9ec;margin-top:6px}
+.report-mast .vs b{color:#fff}
+
+.verdict{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:18px}
+.kpi{background:#0a1322;border:1px solid rgba(255,255,255,.10);border-radius:10px;padding:14px}
+.kpi .l{font-family:var(--nameplate);text-transform:uppercase;letter-spacing:.08em;font-size:9.5px;font-weight:700;color:#8fa2bd}
+.kpi .v{font-family:var(--mono);font-weight:700;font-size:23px;color:#fff;margin-top:7px;line-height:1}
+.kpi .v.amber{color:#ffb38a} .kpi .v.green{color:#86e0a3}
+.kpi .s{font-size:11px;color:#8fa2bd;margin-top:5px}
+
+.sec{margin-top:26px}
+.sec h3{font-family:var(--nameplate);font-size:16px;font-weight:800;margin:0 0 4px;display:flex;align-items:center;gap:9px}
+.sec h3 .bar{width:22px;height:3px;background:var(--laser);border-radius:2px}
+.sec .sublede{color:var(--muted);font-size:13px;margin:0 0 14px}
+
+.summary{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--primary);border-radius:10px;padding:18px 20px;font-size:14.5px;line-height:1.65}
+.summary p{margin:0 0 11px} .summary p:last-child{margin:0}
+.summary .pop{font-family:var(--mono);font-weight:700;color:var(--primary-deep)}
+.summary .pop.amber{color:var(--laser-deep)}
+
+table{width:100%;border-collapse:collapse;font-size:13.5px;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+thead th{font-family:var(--nameplate);text-transform:uppercase;letter-spacing:.06em;font-size:10.5px;font-weight:800;text-align:left;padding:11px 12px;background:var(--mist);color:var(--steel);border-bottom:1px solid var(--line)}
+thead th.kc{color:var(--primary-deep)} thead th.cc{color:var(--muted)}
+tbody td{padding:10px 12px;border-bottom:1px solid var(--line-soft);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+td.n{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+td.kcell{background:var(--primary-soft)} 
+tbody tr.total td{font-weight:700;background:var(--ink);color:#fff;border-bottom:none}
+tbody tr.total td.kcell{background:var(--primary-deep);color:#fff}
+.win{color:var(--good);font-weight:700} .lose{color:var(--bad);font-weight:700}
+.tick{color:var(--good);font-weight:800} .cross{color:var(--bad);font-weight:800}
+.feat-yes{display:inline-flex;align-items:center;gap:6px;color:var(--good);font-weight:600}
+.feat-no{display:inline-flex;align-items:center;gap:6px;color:var(--bad);font-weight:600}
+.dot-ico{width:18px;height:18px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;color:#fff;flex:none}
+.dot-ico.y{background:var(--good)} .dot-ico.n{background:var(--bad)}
+td .impact{display:block;font-size:11px;color:var(--muted);font-weight:400;margin-top:2px}
+.feat-cell{display:flex;align-items:center;gap:11px}
+.feat-ico{flex:none;width:30px;height:30px;border-radius:8px;background:var(--primary-soft);display:inline-flex;align-items:center;justify-content:center}
+.feat-ico svg{width:18px;height:18px;fill:none;stroke:var(--primary-deep);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.anonpair .anon{display:none}
+
+.chartcard{background:#fff;border:1px solid var(--line);border-radius:10px;padding:18px}
+.chartcard+.chartcard{margin-top:14px}
+.chartcard .ct{font-family:var(--nameplate);font-weight:800;font-size:13px;text-transform:uppercase;letter-spacing:.05em;margin:0 0 2px}
+.chartcard .cs{font-size:12px;color:var(--muted);margin:0 0 12px}
+.legend{display:flex;gap:16px;font-size:12px;margin:0 0 8px;font-family:var(--mono)}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.legend .k i{background:var(--primary)} .legend .c i{background:var(--laser)}
+svg.chart{width:100%;height:auto;display:block}
+.barlabel{font-family:var(--mono);font-size:10px;fill:var(--steel)}
+.axislabel{font-family:var(--sans);font-size:11px;fill:var(--muted)}
+.gridline{stroke:var(--line-soft);stroke-width:1}
+
+.uspgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.uspc{border:1px solid var(--line);border-radius:10px;padding:15px;background:#fff}
+.uspc .ut{font-family:var(--nameplate);font-weight:800;font-size:13px;display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.uspc p{margin:0;font-size:13px;color:var(--steel);line-height:1.55}
+
+.foot{margin-top:30px;border-top:1px solid var(--line);padding-top:16px;font-size:11.5px;color:var(--muted-2);line-height:1.6}
+.printbar{display:flex;gap:12px;align-items:center;margin:24px 0 6px;flex-wrap:wrap}
+button.print{font-family:var(--nameplate);font-weight:800;letter-spacing:.03em;font-size:14px;color:#fff;background:var(--ink);border:none;border-radius:9px;padding:12px 22px;cursor:pointer}
+button.print:hover{background:var(--steel)}
+.printbar .hint{font-size:12px;color:var(--muted)}
+
+@media (max-width:720px){
+  .cfggrid,.modelpair,.uspgrid{grid-template-columns:1fr}
+  .verdict{grid-template-columns:1fr 1fr}
+  .inhead,.row{grid-template-columns:1.2fr 1fr 1fr}
+  .steptitle .hint{display:none}
+}
+
+/* ---------- print ---------- */
+@media print{
+  body{background:#fff}
+  .no-print{display:none!important}
+  .wrap{max-width:none;padding:0}
+  #report{display:block!important;margin:0}
+  .report-mast{border-radius:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .kpi,.summary,thead th,td.kcell,tbody tr.total td,.dot-ico,.feat-ico,.beam,.tag,.report-mast .reticle,.chartcard{
+    -webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .sec,.chartcard,.card,table,.uspc{break-inside:avoid;page-break-inside:avoid}
+  .report-mast{break-after:avoid}
+  /* anonymise competitor name/model in the printed PDF (copyright/policy) */
+  .anonpair .real{display:none}
+  .anonpair .anon{display:inline}
+  @page{margin:14mm}
+}
+</style>
 </head>
 <body>
 
-<!-- ========== TOAST NOTIFICATION ========== -->
-<div class="calc-toast" id="calcToast">
-    <span class="toast-icon">✅</span>
-    <div>
-        <div style="font-size:15px;font-weight:800;margin-bottom:3px;">ROI Calculated!</div>
-        <div style="font-size:12px;opacity:0.85;">Scroll down to view your results</div>
+<!-- ============ MASTHEAD ============ -->
+<header class="masthead no-print">
+  <div class="beam"></div>
+  <div class="wrap">
+    <div class="reticle"><span class="dot"></span></div>
+    <div class="brandrow">
+      <span class="brandmark"><span class="k">KEYENCE</span> <span class="sub">/ LASER MARKER</span></span>
     </div>
-</div>
-
-<!-- ========== HEADER ========== -->
-<header>
-    <div>
-        <h1>🏭 Laser Marking ROI Calculator</h1>
-        <p>Calculate your Return on Investment for Keyence Laser & Other Marking Systems</p>
+    <h1>ROI &amp; Competitive<br>Selection Engine</h1>
+    <p class="lede">Build the total-cost-of-ownership case for a Keyence laser marker against any competitor — by laser type, with auto-matched models, a costed ROI verdict and a print-ready report.</p>
+    <div class="tagstrip">
+      <span class="tag"><b>Same-day</b> shipment</span>
+      <span class="tag"><b>45+</b> countries presence</span>
+      <span class="tag"><b>Free</b> lifetime support &amp; training</span>
+      <span class="tag"><b>Zero</b> AMC</span>
+      <span class="tag"><b>Standby</b> unit option*</span>
     </div>
-    <div class="logo-text">KEYENCE</div>
+  </div>
 </header>
 
-<!-- ========== MAIN CONTAINER ========== -->
-<div class="container">
+<div class="wrap">
 
-    <!-- Progress Steps -->
-    <div class="progress-bar">
-        <div class="progress-step active"><div class="dot">1</div> Company Info</div>
-        <div class="connector"></div>
-        <div class="progress-step active"><div class="dot">2</div> Production Data</div>
-        <div class="connector"></div>
-        <div class="progress-step active"><div class="dot">3</div> Current Costs</div>
-        <div class="connector"></div>
-        <div class="progress-step active"><div class="dot">4</div> New Investment</div>
-        <div class="connector"></div>
-        <div class="progress-step active"><div class="dot">5</div> Improvements</div>
-        <div class="connector"></div>
-        <div class="progress-step active"><div class="dot">✓</div> Results</div>
+  <!-- ====== STEP 1: SELECT MODELS ====== -->
+  <section class="step no-print">
+    <div class="steptitle"><span class="stepno">1</span><h2>Select the models to compare</h2>
+      <span class="hint">Models follow the laser-type dataset</span></div>
+    <div class="card">
+      <div class="selstack">
+        <label class="fld"><span class="lab2">Laser Type</span>
+          <select id="type"></select></label>
+        <label class="fld"><span class="lab2">KEYENCE Model</span>
+          <select id="kModelSel"></select></label>
+        <label class="fld"><span class="lab2">Competitor Make</span>
+          <select id="brand"></select></label>
+        <label class="fld"><span class="lab2">Competitor Model</span>
+          <select id="cModelSel"></select></label>
+      </div>
+      <div class="matnote" id="matnote" style="display:none"></div>
+      <div class="gapflag" id="cgap" style="display:none;margin-top:12px"></div>
+    </div>
+  </section>
+
+  <!-- ====== STEP 2: ROI INPUTS ====== -->
+  <section class="step no-print">
+    <div class="steptitle"><span class="stepno">2</span><h2>Enter your line &amp; cost figures</h2>
+      <span class="hint">Defaults are editable industry assumptions</span></div>
+
+    <div class="card">
+      <div class="sub">Shared line parameters</div>
+      <div class="shared" id="sharedRows"></div>
+
+      <div class="inhead">
+        <div class="col">Per-machine cost driver</div>
+        <div class="col k" id="kcolhead">Keyence</div>
+        <div class="col c" id="ccolhead">Competitor</div>
+      </div>
+      <div id="machineRows"></div>
     </div>
 
-    <!-- ===== STEP 1: COMPANY INFO ===== -->
-    <div class="section-card">
-        <div class="section-title">
-            <div class="step-badge">1</div>
-            Company & Application Information
-        </div>
-        <div class="form-grid">
-            <div class="form-group">
-                <label>Company Name</label>
-                <div class="input-wrapper">
-                    <input type="text" id="companyName"
-                           placeholder="e.g. Acme Manufacturing"
-                           autocomplete="organization"
-                           autocorrect="off"
-                           autocapitalize="words">
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Industry Sector</label>
-                <select id="industry">
-                    <option value="automotive">Automotive</option>
-                    <option value="electronics">Electronics / Semiconductor</option>
-                    <option value="medical">Medical Devices</option>
-                    <option value="pharmaceutical">Pharmaceutical</option>
-                    <option value="aerospace">Aerospace & Defense</option>
-                    <option value="general">General Manufacturing</option>
-                    <option value="fmcg">FMCG / Packaging</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Current Marking Method</label>
-                <select id="currentMethod">
-                    <option value="inkjet">Inkjet Printing</option>
-                    <option value="dot_peen">Dot Peen Marking</option>
-                    <option value="label">Label / Sticker</option>
-                    <option value="green_laser">Green Laser</option>
-                    <option value="fiber_laser">Fiber Laser</option>
-                    <option value="co2_laser">CO2 Laser</option>
-                    <option value="UV">UV Laser</option>
-                    <option value="manual">Manual Marking</option>
-                    <option value="none">No Existing System</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Select Currency</label>
-                <select id="currency">
-                    <option value="₹">₹ Indian Rupee (INR)</option>
-                    <option value="$">$ US Dollar (USD)</option>
-                    <option value="€">€ Euro (EUR)</option>
-                    <option value="¥">¥ Japanese Yen (JPY)</option>
-                    <option value="£">£ British Pound (GBP)</option>
-                </select>
-            </div>
-        </div>
+    <div class="runbar">
+      <button class="run" onclick="calculate()">Calculate ROI &amp; build report &nbsp;→</button>
+      <button class="ghost" onclick="resetDefaults()">Reset to defaults</button>
+      <span class="note">All figures stay on this device — nothing is uploaded.</span>
+    </div>
+    <div class="matnote" id="calcWarn" style="display:none;margin-top:12px;border-color:var(--laser);color:var(--laser-deep)"></div>
+  </section>
+
+  <!-- ====== REPORT ====== -->
+  <section id="report">
+    <div class="report-mast">
+      <div class="reticle"><span class="dot"></span></div>
+      <div class="eyebrow">Executive ROI &amp; Competitive Report</div>
+      <h2 id="rTitle">Keyence vs Competitor</h2>
+      <div class="vs" id="rVs"></div>
+      <div class="verdict" id="rKpis"></div>
     </div>
 
-    <!-- ===== STEP 2: PRODUCTION DATA ===== -->
-    <div class="section-card">
-        <div class="section-title">
-            <div class="step-badge">2</div>
-            Current Production Data
-        </div>
-        <div class="form-grid">
-            <div class="form-group">
-                <label>Parts Marked Per Day</label>
-                <div class="input-wrapper">
-                    <input type="number" id="partsPerDay" value="1000" min="1"
-                           inputmode="numeric" pattern="[0-9]*">
-                    <span class="unit-badge">pcs</span>
-                </div>
-                <div class="field-hint">Total pieces marked in one working day</div>
-            </div>
-            <div class="form-group">
-                <label>Working Days Per Year</label>
-                <div class="input-wrapper">
-                    <input type="number" id="workingDays" value="250" min="1" max="365"
-                           inputmode="numeric" pattern="[0-9]*">
-                    <span class="unit-badge">days</span>
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Current Reject Rate</label>
-                <div class="input-wrapper">
-                    <input type="number" id="rejectRate" value="3" min="0" max="100" step="0.1"
-                           inputmode="decimal">
-                    <span class="unit-badge">%</span>
-                </div>
-                <div class="field-hint">% of parts rejected due to marking issues</div>
-            </div>
-            <div class="form-group">
-                <label>Cost Per Rejected Part</label>
-                <div class="input-wrapper">
-                    <input type="number" id="costPerReject" value="500" min="0"
-                           inputmode="numeric" pattern="[0-9]*">
-                    <span class="unit-badge">unit</span>
-                </div>
-                <div class="field-hint">Material + labor cost per rejected piece</div>
-            </div>
-            <div class="form-group">
-                <label>Marking Time Per Part</label>
-                <div class="input-wrapper">
-                    <input type="number" id="currentMarkingTime" value="10" min="0.1" step="0.1"
-                           inputmode="decimal">
-                    <span class="unit-badge">sec</span>
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Operators Assigned to Marking</label>
-                <div class="input-wrapper">
-                    <input type="number" id="operators" value="2" min="0"
-                           inputmode="numeric" pattern="[0-9]*">
-                    <span class="unit-badge">no.</span>
-                </div>
-            </div>
-        </div>
+    <div class="sec">
+      <h3><span class="bar"></span>Executive summary</h3>
+      <div class="summary" id="rSummary"></div>
     </div>
 
-    <!-- ===== STEP 3: CURRENT COSTS ===== -->
-    <div class="section-card">
-        <div class="section-title">
-            <div class="step-badge">3</div>
-            Current Annual Operating Costs
-        </div>
-        <div class="form-grid">
-            <div class="form-group">
-                <label>Operator Hourly Wage</label>
-                <div class="input-wrapper">
-                    <input type="number" id="hourlyWage" value="150" min="0"
-                           inputmode="numeric" pattern="[0-9]*">
-                    <span class="unit-badge">/hr</span>
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Annual Consumables Cost</label>
-                <div class="input-wrapper">
-                    <input type="number" id="consumablesCost" value="50000" min="0"
-                           inputmode="numeric" pattern="[0-9]*">
-                    <span class="unit-badge">/yr</span>
-                </div>
-                <div class="field-hint">Ink, labels, ribbons, desiccants, etc.</div>
-            </div>
-            <div class="form-group">
-                <label>Annual Maintenance Cost</label>
-                <div class="input-wrapper">
-                    <input type="number" id="maintenanceCost" value="30000" min="0"
-                           inputmode="numeric" pattern="[0-9]*">
-                    <span class="unit-badge">/yr</span>
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Annual Machine Downtime</label>
-                <div class="input-wrapper">
-                    <input type="number" id="downtimeHours" value="50" min="0"
-                           inputmode="numeric" pattern="[0-9]*">
-                    <span class="unit-badge">hrs/yr</span>
-                </div>
-                <div class="field-hint">Total marking system downtime hours per year</div>
-            </div>
-            <div class="form-group">
-                <label>Cost Per Hour of Downtime</label>
-                <div class="input-wrapper">
-                    <input type="number" id="downtimeCostPerHr" value="5000" min="0"
-                           inputmode="numeric" pattern="[0-9]*">
-                    <span class="unit-badge">/hr</span>
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Annual Repair Cost</label>
-                <div class="input-wrapper">
-                    <input type="number" id="reworkCost" value="20000" min="0"
-                           inputmode="numeric" pattern="[0-9]*">
-                    <span class="unit-badge">/yr</span>
-                </div>
-                <div class="field-hint">Cost for repairing marking defects & failures</div>
-            </div>
-
-            <!-- Electricity Sub-section -->
-            <div class="sub-section-label">⚡ Electricity / Energy Costs</div>
-
-            <div class="form-group">
-                <label>Current System Power Consumption</label>
-                <div class="input-wrapper">
-                    <input type="number" id="currentPower" value="0.5" min="0" step="0.01"
-                           inputmode="decimal">
-                    <span class="unit-badge">kW</span>
-                </div>
-                <div class="field-hint">Average power draw of current marking system</div>
-            </div>
-            <div class="form-group">
-                <label>Machine Operating Hours Per Day</label>
-                <div class="input-wrapper">
-                    <input type="number" id="machineHoursPerDay" value="8" min="0" max="24" step="0.5"
-                           inputmode="decimal">
-                    <span class="unit-badge">hrs/day</span>
-                </div>
-                <div class="field-hint">Actual machine run hours per shift/day</div>
-            </div>
-            <div class="form-group">
-                <label>Electricity Rate</label>
-                <div class="input-wrapper">
-                    <input type="number" id="electricityRate" value="8" min="0" step="0.01"
-                           inputmode="decimal">
-                    <span class="unit-badge">/kWh</span>
-                </div>
-                <div class="field-hint">Cost per unit (e.g. ₹8/kWh for India)</div>
-            </div>
-        </div>
+    <div class="sec">
+      <h3><span class="bar"></span>Total cost of ownership</h3>
+      <p class="sublede">Acquisition plus all running costs over the evaluation horizon. Lower is better.</p>
+      <table id="rTco"></table>
     </div>
 
-    <!-- ===== STEP 4: NEW SYSTEM INVESTMENT ===== -->
-    <div class="section-card">
-        <div class="section-title">
-            <div class="step-badge">4</div>
-            Keyence Laser System — Investment Details
-        </div>
-        <div class="form-grid">
-            <div class="form-group">
-                <label>Laser System Model</label>
-                <select id="laserType">
-                    <option value="UV">UV Laser — MD-U2000 Series</option>
-                    <option value="Hybrid">Hybrid Laser — MD-X2000 Series</option>
-                    <option value="fiber">Fiber Laser — MD-F Series</option>
-                    <option value="CO2">CO2 Laser — ML-Z Series</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>System Purchase Price</label>
-                <div class="input-wrapper">
-                    <input type="number" id="systemPrice" value="0" min="0"
-                           inputmode="numeric" pattern="[0-9]*">
-                    <span class="unit-badge">total</span>
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Installation & Integration Cost</label>
-                <div class="input-wrapper">
-                    <input type="number" id="installationCost" value="0" min="0"
-                           inputmode="numeric" pattern="[0-9]*">
-                    <span class="unit-badge">total</span>
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Training & Commissioning Cost</label>
-                <div class="input-wrapper">
-                    <input type="number" id="trainingCost" value="0" min="0"
-                           inputmode="numeric" pattern="[0-9]*">
-                    <span class="unit-badge">total</span>
-                </div>
-            </div>
-            <div class="form-group">
-                <label>New System Annual Maintenance</label>
-                <div class="input-wrapper">
-                    <input type="number" id="newMaintenanceCost" value="0" min="0"
-                           inputmode="numeric" pattern="[0-9]*">
-                    <span class="unit-badge">/yr</span>
-                </div>
-                <div class="field-hint">Keyence Laser Markers typically require minimal maintenance</div>
-            </div>
-            <div class="form-group">
-                <label>Expected System Lifetime</label>
-                <div class="input-wrapper">
-                    <input type="number" id="systemLifetime" value="7" min="1" max="20"
-                           inputmode="numeric" pattern="[0-9]*">
-                    <span class="unit-badge">yrs</span>
-                </div>
-            </div>
-        </div>
+    <div class="sec">
+      <h3><span class="bar"></span>Where the money goes — annual cost breakdown</h3>
+      <p class="sublede">A lower purchase price is often erased by rejection, downtime and AMC over a single year.</p>
+      <div class="chartcard">
+        <div class="ct">Annual operating cost by category</div>
+        <div class="cs">Keyence vs competitor, per year</div>
+        <div class="legend"><span class="k"><i></i>Keyence</span><span class="c"><i></i>Competitor</span></div>
+        <div id="rChartCost"></div>
+      </div>
+      <div class="chartcard">
+        <div class="ct">Cumulative cost of ownership</div>
+        <div class="cs">How the gap compounds year over year</div>
+        <div class="legend"><span class="k"><i></i>Keyence</span><span class="c"><i></i>Competitor</span></div>
+        <div id="rChartTco"></div>
+      </div>
     </div>
 
-    <!-- ===== STEP 5: EXPECTED IMPROVEMENTS ===== -->
-    <div class="section-card">
-        <div class="section-title">
-            <div class="step-badge">5</div>
-            Expected Performance Improvements
-        </div>
-        <div class="form-grid">
-            <div class="form-group">
-                <label>Expected New Reject Rate</label>
-                <div class="input-wrapper">
-                    <input type="number" id="newRejectRate" value="0.2" min="0" max="100" step="0.1"
-                           inputmode="decimal">
-                    <span class="unit-badge">%</span>
-                </div>
-                <div class="field-hint">UV laser typical: 0.1–0.5%</div>
-            </div>
-            <div class="form-group">
-                <label>New Marking Time Per Part</label>
-                <div class="input-wrapper">
-                    <input type="number" id="newMarkingTime" value="3" min="0.1" step="0.1"
-                           inputmode="decimal">
-                    <span class="unit-badge">sec</span>
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Operators Required (New System)</label>
-                <div class="input-wrapper">
-                    <input type="number" id="newOperators" value="1" min="0"
-                           inputmode="numeric" pattern="[0-9]*">
-                    <span class="unit-badge">no.</span>
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Expected Downtime Reduction</label>
-                <div class="input-wrapper">
-                    <input type="number" id="downtimeReduction" value="80" min="0" max="100"
-                           inputmode="numeric" pattern="[0-9]*">
-                    <span class="unit-badge">%</span>
-                </div>
-                <div class="field-hint">Keyence systems: typically 70–90% reduction</div>
-            </div>
-            <div class="form-group">
-                <label>New Annual Consumables Cost</label>
-                <div class="input-wrapper">
-                    <input type="number" id="newConsumablesCost" value="5000" min="0"
-                           inputmode="numeric" pattern="[0-9]*">
-                    <span class="unit-badge">/yr</span>
-                </div>
-                <div class="field-hint">Near zero for Keyence laser markers</div>
-            </div>
-            <div class="form-group">
-                <label>Expected New Annual Repair Cost</label>
-                <div class="input-wrapper">
-                    <input type="number" id="newReworkCost" value="2000" min="0"
-                           inputmode="numeric" pattern="[0-9]*">
-                    <span class="unit-badge">/yr</span>
-                </div>
-            </div>
-            <div class="form-group">
-                <label>New System Power Consumption</label>
-                <div class="input-wrapper">
-                    <input type="number" id="newPower" value="0.2" min="0" step="0.01"
-                           inputmode="decimal">
-                    <span class="unit-badge">kW</span>
-                </div>
-                <div class="field-hint">Keyence laser markers: typically 0.1–0.5 kW</div>
-            </div>
-        </div>
+    <div class="sec">
+      <h3><span class="bar"></span>Performance &amp; reliability scorecard</h3>
+      <p class="sublede">Operational metrics that drive the numbers above.</p>
+      <table id="rPerf"></table>
     </div>
 
-    <!-- Calculate Button -->
-    <button class="calculate-btn" id="calcBtn" onclick="calculateROI()">
-        🔢 &nbsp; Calculate ROI Now
-    </button>
-
-    <!-- Progress bar under button -->
-    <div class="calc-progress-wrap" id="calcProgressWrap">
-        <div class="calc-progress-fill" id="calcProgressFill"></div>
+    <div class="sec">
+      <h3><span class="bar"></span>Technical specification comparison</h3>
+      <p class="sublede">Representative for the selected laser type — confirm against the quoted configuration.</p>
+      <table id="rSpecs"></table>
     </div>
 
-    <!-- ===== RESULTS SECTION ===== -->
-    <div class="results-section" id="resultsSection">
+    <div class="sec">
+      <h3><span class="bar"></span>Feature &amp; service comparison</h3>
+      <p class="sublede">Green check = advantage. Service terms are where Keyence separates from the field.</p>
+      <table id="rFeat"></table>
+    </div>
 
-        <div class="alert-box">
-            ℹ️ <span>Results below are based on your inputs. For a detailed site-specific assessment, contact your Keyence representative.</span>
-        </div>
+    <div class="sec">
+      <h3><span class="bar"></span>The Keyence ownership advantage</h3>
+      <div class="uspgrid" id="rUsp"></div>
+    </div>
 
-        <!-- Summary Banner -->
-        <div class="summary-banner">
-            <div class="banner-item">
-                <div class="banner-value" id="bannerSavings">—</div>
-                <div class="banner-label">Annual Savings</div>
-            </div>
-            <div class="banner-divider"></div>
-            <div class="banner-item">
-                <div class="banner-value" id="bannerPayback">—</div>
-                <div class="banner-label">Payback Period</div>
-            </div>
-            <div class="banner-divider"></div>
-            <div class="banner-item">
-                <div class="banner-value" id="bannerROI5">—</div>
-                <div class="banner-label">5-Year ROI</div>
-            </div>
-            <div class="banner-divider"></div>
-            <div class="banner-item">
-                <div class="banner-value" id="bannerProductivity">—</div>
-                <div class="banner-label">Speed Improvement</div>
-            </div>
-        </div>
+    <div class="printbar no-print">
+      <button class="print" onclick="window.print()">⬇ Save / print PDF report</button>
+      <span class="hint">In the print dialog choose <b>“Save as PDF”</b> (or Share → Print on Android).</span>
+    </div>
 
-        <!-- Recommendation Box -->
-        <div class="recommendation-box">
-            <h3 id="recTitle">📊 ROI Analysis Result</h3>
-            <div class="rec-grid" id="recGrid"></div>
-        </div>
+    <div class="foot" id="rFoot"></div>
+  </section>
 
-        <!-- KPI Cards -->
-        <div class="kpi-grid">
-            <div class="kpi-card green">
-                <div class="kpi-icon">💰</div>
-                <div class="kpi-value" id="kpiAnnualSavings">—</div>
-                <div class="kpi-label">Annual Savings</div>
-                <div class="kpi-sublabel">vs. current method</div>
-            </div>
-            <div class="kpi-card blue">
-                <div class="kpi-icon">⏱️</div>
-                <div class="kpi-value" id="kpiPayback">—</div>
-                <div class="kpi-label">Payback Period</div>
-                <div class="kpi-sublabel">To recover full investment</div>
-            </div>
-            <div class="kpi-card green">
-                <div class="kpi-icon">📈</div>
-                <div class="kpi-value" id="kpiROI3">—</div>
-                <div class="kpi-label">3-Year ROI</div>
-                <div class="kpi-sublabel">Net return on investment</div>
-            </div>
-            <div class="kpi-card green">
-                <div class="kpi-icon">🚀</div>
-                <div class="kpi-value" id="kpiROI5">—</div>
-                <div class="kpi-label">5-Year ROI</div>
-                <div class="kpi-sublabel">Net return on investment</div>
-            </div>
-            <div class="kpi-card orange">
-                <div class="kpi-icon">🗑️</div>
-                <div class="kpi-value" id="kpiRejectSavings">—</div>
-                <div class="kpi-label">Reject Savings</div>
-                <div class="kpi-sublabel">Annual scrap cost reduction</div>
-            </div>
-            <div class="kpi-card blue">
-                <div class="kpi-icon">⚡</div>
-                <div class="kpi-value" id="kpiProductivity">—</div>
-                <div class="kpi-label">Speed Gain</div>
-                <div class="kpi-sublabel">Marking time improvement</div>
-            </div>
-            <div class="kpi-card teal">
-                <div class="kpi-icon">🔌</div>
-                <div class="kpi-value" id="kpiElectricitySavings">—</div>
-                <div class="kpi-label">Energy Savings</div>
-                <div class="kpi-sublabel">Annual electricity cost reduction</div>
-            </div>
-        </div>
+</div>
 
-        <!-- Charts Row 1 -->
-        <div class="charts-grid">
-            <div class="chart-card">
-                <div class="chart-title">📊 Annual Operating Cost — Before vs After</div>
-                <canvas id="costComparisonChart"></canvas>
-            </div>
-            <div class="chart-card">
-                <div class="chart-title">📈 Cumulative Net Savings Over System Lifetime</div>
-                <canvas id="cumulativeSavingsChart"></canvas>
-            </div>
-        </div>
-
-        <!-- Charts Row 2 -->
-        <div class="charts-grid">
-            <div class="chart-card">
-                <div class="chart-title">🥧 Current Annual Cost Breakdown</div>
-                <canvas id="currentPieChart"></canvas>
-            </div>
-            <div class="chart-card">
-                <div class="chart-title">🥧 New System Annual Cost Breakdown</div>
-                <canvas id="newPieChart"></canvas>
-            </div>
-        </div>
-
-        <!-- Breakdown Table -->
-        <div class="section-card">
-            <div class="section-title">📋 Detailed Cost Savings Breakdown</div>
-            <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
-                <table class="breakdown-table">
-                    <thead>
-                        <tr>
-                            <th>Cost Category</th>
-                            <th>Current Annual Cost</th>
-                            <th>New Annual Cost</th>
-                            <th>Annual Savings</th>
-                            <th>% Reduction</th>
-                        </tr>
-                    </thead>
-                    <tbody id="breakdownBody"></tbody>
-                    <tfoot  id="breakdownFoot"></tfoot>
-                </table>
-            </div>
-        </div>
-
-        <!-- Buttons -->
-        <div class="btn-group">
-            <button class="btn-print" onclick="window.print()">🖨️ Print / Export as PDF</button>
-            <button class="btn-reset" onclick="resetCalculator()">🔄 Reset Calculator</button>
-        </div>
-
-    </div><!-- End Results -->
-
-</div><!-- End Container -->
-
-<!-- ========== FOOTER ========== -->
-<footer>
-    <p><strong>From Laser Marking Technical Division</strong></p>
-    <p style="margin-top: 6px;">For reference purposes only. Actual results depend on specific application conditions. Always consult your Keyence representative for a detailed assessment.</p>
-</footer>
-
-<!-- ========== JAVASCRIPT ========== -->
 <script>
-    let chartInstances = {};
+/* =====================================================================
+   MODEL DATABASE  (laser type -> selectable Keyence + competitor models)
+   Spec values (power / wavelength / field / IP) verified against
+   manufacturer line-ups (2025/26). Commercial defaults (capex, AMC, etc.)
+   are representative starting figures, fully editable in the form.
+   ===================================================================== */
+/* default operating assumptions merged into each model's editable inputs.
+   kw = electrical power draw (kW) — energy COST is computed from this in calculate().
+   Model list & wattages from Book1.xlsx. kw from manufacturer datasheets (VA x 0.7 power
+   factor where only VA is published; Keyence/Panasonic LP-RF/Trumpf 6030 measured), others scaled. */
+function kdef(o){return Object.assign({reject:0.3,maint:5000,amc:0,spares:5000,repair:8000,kw:0.5,labour:120000,downtime:6},o);}
+function cdef(o){return Object.assign({reject:0.9,maint:40000,amc:90000,spares:45000,repair:60000,kw:1.0,labour:150000,downtime:28},o);}
 
-    function fmt(value, currency) {
-        if (!currency) currency = document.getElementById('currency').value;
-        const abs = Math.abs(value);
-        let formatted;
-        if (currency === '₹') {
-            if (abs >= 10000000)    formatted = currency + (value / 10000000).toFixed(2) + ' Cr';
-            else if (abs >= 100000) formatted = currency + (value / 100000).toFixed(2) + ' L';
-            else if (abs >= 1000)   formatted = currency + (value / 1000).toFixed(1) + ' K';
-            else                    formatted = currency + value.toFixed(0);
-        } else {
-            if (abs >= 1000000)     formatted = currency + (value / 1000000).toFixed(2) + 'M';
-            else if (abs >= 1000)   formatted = currency + (value / 1000).toFixed(1) + 'K';
-            else                    formatted = currency + value.toFixed(0);
-        }
-        return formatted;
+const TYPES = {
+  ir:{
+    label:"IR (1064 nm)",
+    mat:"Best for <b>metals</b> and high-density plastics — the 1064 nm workhorse for direct part marking & traceability. Covers Keyence MD-X (hybrid) and MD-F (fiber) families.",
+    keyence:{fam:"Keyence MD-X / MD-F (IR 1064 nm)", models:{
+      "MD-X2000A — 13W":kdef({watt:"13W",wl:"1064 nm",field:"125 × 125 mm",ip:"IP64",kw:0.49,capex:4000000,cycle:0.8}),
+      "MD-X2020A — 13W":kdef({watt:"13W",wl:"1064 nm",field:"330 × 330 mm",ip:"IP64",kw:0.49,capex:4000000,cycle:0.8}),
+      "MD-X2050A — 13W":kdef({watt:"13W",wl:"1064 nm",field:"50 × 50 mm",ip:"IP64",kw:0.49,capex:4000000,cycle:0.8}),
+      "MD-X2500A — 25W":kdef({watt:"25W",wl:"1064 nm",field:"125 × 125 mm",ip:"IP64",kw:0.6,capex:4000000,cycle:0.8}),
+      "MD-X2520A — 25W":kdef({watt:"25W",wl:"1064 nm",field:"330 × 330 mm",ip:"IP64",kw:0.6,capex:4000000,cycle:0.8}),
+      "MD-F3200 — 30W":kdef({watt:"30W",wl:"1064 nm",field:"125 × 125 mm",ip:"IP64",kw:0.39,capex:4000000,cycle:0.7}),
+      "MD-F3220 — 30W":kdef({watt:"30W",wl:"1064 nm",field:"300 × 300 mm",ip:"IP64",kw:0.39,capex:4000000,cycle:0.7}),
+      "MD-F5200 — 50W":kdef({watt:"50W",wl:"1064 nm",field:"125 × 125 mm",ip:"IP64",kw:0.53,capex:4000000,cycle:0.6}),
+      "MD-F5220 — 50W":kdef({watt:"50W",wl:"1064 nm",field:"300 × 300 mm",ip:"IP64",kw:0.53,capex:4000000,cycle:0.6})
+    }},
+    comp:{
+      videojet:{fam:"Videojet IR (1064 nm)", models:{
+        "Videojet 7230 — 10W":cdef({watt:"10W",wl:"1064 nm",field:"2-axis",ip:"IP54",kw:0.45,capex:880000,cycle:1.0}),
+        "Videojet 7330 — 20W":cdef({watt:"20W",wl:"1064 nm",field:"2-axis",ip:"IP54",kw:0.5,capex:960000,cycle:1.0}),
+        "Videojet 7340 — 20W":cdef({watt:"20W",wl:"1064 nm",field:"2-axis",ip:"IP54",kw:0.5,capex:960000,cycle:1.0}),
+        "Videojet 7440 — 30W":cdef({watt:"30W",wl:"1064 nm",field:"2-axis",ip:"IP54",kw:0.55,capex:1040000,cycle:1.0}),
+        "Videojet 7510 — 50W":cdef({watt:"50W",wl:"1064 nm",field:"2-axis",ip:"IP54",kw:0.7,capex:1200000,cycle:1.0}),
+        "Videojet 7610 — 100W":cdef({watt:"100W",wl:"1064 nm",field:"2-axis",ip:"IP54",kw:1.0,capex:1600000,cycle:1.0})
+      }},
+      gravotech:{fam:"Gravotech IR (1064 nm)", models:{
+        "Gravotech F20 — 20W":cdef({watt:"20W",wl:"1064 nm",field:"varies / engraving",ip:"—",kw:0.4,capex:860000,cycle:1.0}),
+        "Gravotech F30 — 30W":cdef({watt:"30W",wl:"1064 nm",field:"varies / engraving",ip:"—",kw:0.45,capex:940000,cycle:1.0}),
+        "Gravotech F50 — 50W":cdef({watt:"50W",wl:"1064 nm",field:"varies / engraving",ip:"—",kw:0.55,capex:1100000,cycle:1.0}),
+        "MOPA 30 — 30W":cdef({watt:"30W",wl:"1064 nm",field:"varies / engraving",ip:"—",kw:0.5,capex:940000,cycle:1.0}),
+        "MOPA 60 — 60W":cdef({watt:"60W",wl:"1064 nm",field:"varies / engraving",ip:"—",kw:0.7,capex:1180000,cycle:1.0}),
+        "Gravotech H10 — 10W":cdef({watt:"10W",wl:"1064 nm",field:"varies / engraving",ip:"—",kw:0.35,capex:780000,cycle:1.0}),
+        "Gravotech H20 — 20W":cdef({watt:"20W",wl:"1064 nm",field:"varies / engraving",ip:"—",kw:0.4,capex:860000,cycle:1.0})
+      }},
+      panasonic:{fam:"Panasonic IR (1064 nm)", models:{
+        "LP-RF200P — 20W":cdef({watt:"20W",wl:"1064 nm",field:"≈ 160 mm",ip:"IP65",kw:0.26,capex:1010000,cycle:1.0}),
+        "LP-RF300P — 30W":cdef({watt:"30W",wl:"1064 nm",field:"≈ 160 mm",ip:"IP65",kw:0.32,capex:1090000,cycle:1.0}),
+        "LP-RF500P — 50W":cdef({watt:"50W",wl:"1064 nm",field:"≈ 160 mm",ip:"IP65",kw:0.42,capex:1250000,cycle:1.0}),
+        "LP-ZV200P — 17W":cdef({watt:"17W",wl:"1064 nm",field:"≈ 160 mm",ip:"IP65",kw:0.26,capex:986000,cycle:1.0}),
+        "LP-ZV500P — 52W":cdef({watt:"52W",wl:"1064 nm",field:"≈ 160 mm",ip:"IP65",kw:0.49,capex:1266000,cycle:1.0}),
+        "LP-M200 — 16W":cdef({watt:"16W",wl:"1064 nm",field:"≈ 160 mm",ip:"IP65",kw:0.26,capex:978000,cycle:1.0}),
+        "LP-M500 — 40W":cdef({watt:"40W",wl:"1064 nm",field:"≈ 160 mm",ip:"IP65",kw:0.39,capex:1170000,cycle:1.0})
+      }},
+      trumpf:{fam:"Trumpf IR (1064 nm)", models:{
+        "TruMark 5020 — 20W":cdef({watt:"20W",wl:"1064 nm",field:"2-axis",ip:"IP54",kw:0.5,capex:1360000,cycle:1.0}),
+        "TruMark 5050 — 50W":cdef({watt:"50W",wl:"1064 nm",field:"2-axis",ip:"IP54",kw:0.8,capex:1600000,cycle:1.0}),
+        "TruMark 6030 — 28W":cdef({watt:"28W",wl:"1064 nm",field:"3D capable",ip:"IP54",kw:0.4,capex:1424000,cycle:1.0})
+      }},
+    },
+    specCommon:[["Laser type","Hybrid YVO₄ / fiber","Fiber / MOPA / vanadate","k"],["Built-in vision camera","Yes — integrated","Optional add-on","k"],["Full-field autofocus / 3-axis","Yes","Rare / fixed focus","k"],["Marking analytics / lens-dirt detect","Yes","No","k"],["Cooling","Air-cooled, fanless","Air-cooled","tie"]]
+  },
+  uv:{
+    label:"UV (355 nm)",
+    mat:"<b>Cold marking</b> (355 nm) for heat-sensitive plastics, films, glass, ceramics and fine electronics — high contrast with minimal thermal damage.",
+    keyence:{fam:"Keyence MD-U UV Series", models:{
+      "MD-U2010 — 2.5W":kdef({watt:"2.5W",wl:"355 nm",field:"≈ 120 × 120 mm",ip:"IP64",kw:0.27,capex:4000000,cycle:1.0}),
+      "MD-U2020 — 2.5W":kdef({watt:"2.5W",wl:"355 nm",field:"≈ 300 × 300 mm",ip:"IP64",kw:0.27,capex:4000000,cycle:1.0}),
+      "MD-U2050 — 2.5W":kdef({watt:"2.5W",wl:"355 nm",field:"≈ 50 × 50 mm",ip:"IP64",kw:0.27,capex:4000000,cycle:1.0}),
+      "MD-U2510 — 7W":kdef({watt:"7W",wl:"355 nm",field:"≈ 120 × 120 mm",ip:"IP64",kw:0.37,capex:4000000,cycle:1.0}),
+      "MD-U2520 — 7W":kdef({watt:"7W",wl:"355 nm",field:"≈ 300 × 300 mm",ip:"IP64",kw:0.37,capex:4000000,cycle:1.0}),
+      "MD-U2530 — 7W":kdef({watt:"7W",wl:"355 nm",field:"≈ 50 × 50 mm",ip:"IP64",kw:0.37,capex:4000000,cycle:1.0})
+    }},
+    comp:{
+      videojet:{fam:"Videojet UV (355 nm)", models:{
+        "Videojet 7920 — 4W":cdef({watt:"4W",wl:"355 nm",field:"2-axis",ip:"IP54",kw:0.4,capex:1424000,cycle:1.2})
+      }},
+      gravotech:{fam:"Gravotech UV (355 nm)", models:{
+        "Gravotech U5E — 5W":cdef({watt:"5W",wl:"355 nm",field:"varies / engraving",ip:"—",kw:0.45,capex:1230000,cycle:1.2})
+      }},
+      panasonic:{gap:true},
+      trumpf:{fam:"Trumpf UV (355 nm)", models:{
+        "TruMark 3330 — 3W":cdef({watt:"3W",wl:"355 nm",field:"2-axis",ip:"IP54",kw:0.3,capex:1518000,cycle:1.2})
+      }},
+    },
+    specCommon:[["Laser type","UV DPSS","UV DPSS","tie"],["Built-in camera / verify","Yes — integrated","Optional","k"],["Full-field autofocus / 3-axis","Yes","Usually no","k"],["Distance & position auto-correction","Yes","No","k"],["Thermal damage on sensitive parts","Minimal (cold)","Minimal (cold)","tie"]]
+  },
+  co2:{
+    label:"CO₂ (9.3 / 10.6 µm)",
+    mat:"For <b>organics & non-metals</b> — paper, board, wood, coated surfaces, glass and many plastics. Common in packaging, pharma and beverage lines.",
+    keyence:{fam:"Keyence ML-Z CO₂ Series", models:{
+      "ML-Z9610 — 30W":kdef({watt:"30W",wl:"9.3 / 10.6 µm",field:"≈ 125 × 125 mm",ip:"IP64",kw:0.7,capex:4000000,cycle:0.7}),
+      "ML-Z9620 — 30W":kdef({watt:"30W",wl:"9.3 / 10.6 µm",field:"≈ 300 × 300 mm",ip:"IP64",kw:0.7,capex:4000000,cycle:0.7}),
+      "ML-Z9650 — 30W":kdef({watt:"30W",wl:"9.3 / 10.6 µm",field:"≈ 50 × 50 mm",ip:"IP64",kw:0.7,capex:4000000,cycle:0.7})
+    }},
+    comp:{
+      videojet:{fam:"Videojet CO₂ (9.3 / 10.6 µm)", models:{
+        "Videojet 3140 — 10W":cdef({watt:"10W",wl:"9.3 / 10.6 µm",field:"2-axis",ip:"IP54",kw:0.5,capex:980000,cycle:1.1}),
+        "Videojet 3210 — 30W":cdef({watt:"30W",wl:"9.3 / 10.6 µm",field:"2-axis",ip:"IP54",kw:0.7,capex:1140000,cycle:1.1}),
+        "Videojet 3350 — 30W":cdef({watt:"30W",wl:"9.3 / 10.6 µm",field:"2-axis",ip:"IP54",kw:0.7,capex:1140000,cycle:1.1}),
+        "Videojet 3350 Smart Focus — 30W":cdef({watt:"30W",wl:"9.3 / 10.6 µm",field:"2-axis",ip:"IP54",kw:0.72,capex:1140000,cycle:1.1}),
+        "Videojet 3640 — 60W":cdef({watt:"60W",wl:"9.3 / 10.6 µm",field:"2-axis",ip:"IP54",kw:1.0,capex:1380000,cycle:1.1})
+      }},
+      gravotech:{fam:"Gravotech CO₂ (9.3 / 10.6 µm)", models:{
+        "Gravotech C30 — 30W":cdef({watt:"30W",wl:"9.3 / 10.6 µm",field:"varies / engraving",ip:"—",kw:0.7,capex:1140000,cycle:1.1})
+      }},
+      panasonic:{fam:"Panasonic CO₂ (9.3 / 10.6 µm)", models:{
+        "LP-RH100 — 10W":cdef({watt:"10W",wl:"9.3 / 10.6 µm",field:"2-axis",ip:"IP65",kw:0.42,capex:980000,cycle:1.1}),
+        "LP-RH200 — 20W":cdef({watt:"20W",wl:"9.3 / 10.6 µm",field:"2-axis",ip:"IP65",kw:0.53,capex:1060000,cycle:1.1}),
+        "LP-RH300 — 30W":cdef({watt:"30W",wl:"9.3 / 10.6 µm",field:"2-axis",ip:"IP65",kw:0.63,capex:1140000,cycle:1.1})
+      }},
+      trumpf:{gap:true},
+    },
+    specCommon:[["Laser type","CO₂ sealed tube","CO₂ sealed tube","tie"],["3-axis focus control","Yes","No (2-axis)","k"],["Built-in camera / verify","Yes","Optional","k"],["Marks step / cylinder / cone","Yes (3-axis)","Limited","k"],["Power monitor","Yes","Varies","k"]]
+  },
+  green:{
+    label:"Green (532 nm)",
+    mat:"<b>Micro & cold marking</b> (532 nm) for reflective metals (copper/gold), semiconductor and ultra-fine 2D codes.",
+    keyence:{fam:"— (no Keyence green model in dataset)", models:{
+
+    }},
+    comp:{
+      videojet:{gap:true},
+      gravotech:{fam:"Gravotech Green (532 nm)", models:{
+        "Gravotech G5 — 5W":cdef({watt:"5W",wl:"532 nm",field:"varies / engraving",ip:"—",kw:0.45,capex:1130000,cycle:1.1}),
+        "Gravotech G10 — 10W":cdef({watt:"10W",wl:"532 nm",field:"varies / engraving",ip:"—",kw:0.5,capex:1160000,cycle:1.1})
+      }},
+      panasonic:{gap:true},
+      trumpf:{gap:true},
+    },
+    specCommon:[["Laser type","Green DPSS","Green DPSS","tie"],["Built-in camera / verify","Yes","Optional","k"],["Full-field autofocus / 3-axis","Yes","Rare","k"],["Micro-code on reflective metal","Excellent","Good","k"]]
+  },
+};
+
+const BRANDS = {
+  videojet:"Videojet", gravotech:"Gravotech", panasonic:"Panasonic", trumpf:"Trumpf"
+};
+
+/* Feature & service matrix — Keyence USP set. true = has advantage / yes */
+const FEATURES = [
+  ["Built-in vision camera & code grade/verify", true, false, "Catches no-reads in-cycle → lower rejection", "camera"],
+  ["Full-field autofocus / 3-axis marking", true, false, "Marks stepped, curved & cylindrical parts without fixturing", "focus"],
+  ["Real-time power & lens-contamination monitor", true, false, "Prevents bad marks before they happen", "gauge"],
+  ["Same-day spare / unit shipment", true, false, "Slashes downtime when something is needed fast", "truck"],
+  ["Direct presence in 45+ countries", true, false, "Local engineers, not a distributor chain", "globe"],
+  ["Free lifetime application support & training", true, false, "No paid support desk, no training invoices", "support"],
+  ["Zero AMC (no annual maintenance contract)", true, false, "Recurring AMC removed from the budget entirely", "nocost"],
+  ["Loaner / standby unit during breakdown*", true, false, "Keeps the line running while a unit is serviced", "swap"],
+  ["Consumable-free operation (no ink/ribbon)", true, true, "True of all laser markers", "nodrop"],
+  ["IP-rated sealed head for harsh / washdown lines", true, false, "Reliable in dusty, oily, wet environments", "shield"]
+];
+
+/* inline SVG icon set for the feature matrix (offline, no external assets) */
+const ICONS={
+ camera:'<rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/><path d="M8.5 7l1.2-2h4.6L15.5 7"/>',
+ focus:'<path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="2.5"/>',
+ gauge:'<path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l4.5-5"/><circle cx="12" cy="18" r="1.2"/>',
+ truck:'<rect x="2.5" y="7" width="11" height="9" rx="1"/><path d="M13.5 10h4l3 3v3h-7z"/><circle cx="6.5" cy="17.5" r="1.6"/><circle cx="17" cy="17.5" r="1.6"/>',
+ globe:'<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c2.6 2.4 2.6 14.6 0 17c-2.6-2.4-2.6-14.6 0-17z"/>',
+ support:'<path d="M5 13v-1a7 7 0 0 1 14 0v1"/><rect x="3.5" y="12.5" width="3.4" height="6" rx="1.2"/><rect x="17.1" y="12.5" width="3.4" height="6" rx="1.2"/><path d="M19 18.8v.4a2.6 2.6 0 0 1-2.6 2.6H12.5"/>',
+ nocost:'<rect x="3" y="7" width="18" height="10" rx="2"/><circle cx="12" cy="12" r="2.3"/><path d="M4.5 5.5l15 13"/>',
+ swap:'<path d="M4.5 9h11l-3-3"/><path d="M19.5 15h-11l3 3"/>',
+ nodrop:'<path d="M12 4.5c2.8 3 4.5 5.6 4.5 8.2a4.5 4.5 0 0 1-9 0c0-2.6 1.7-5.2 4.5-8.2z"/><path d="M5 5l14 14"/>',
+ shield:'<path d="M12 3.2l7 2.8v5c0 4.4-3 7.8-7 9.8c-4-2-7-5.4-7-9.8V6z"/><path d="M9 12l2 2 4-4"/>'
+};
+function featIcon(key){return (key&&ICONS[key])?`<span class="feat-ico"><svg viewBox="0 0 24 24">${ICONS[key]}</svg></span>`:'';}
+
+/* USP narrative cards */
+const USPS = [
+  ["Same-day shipment","When a part or a replacement unit is needed, Keyence ships the same day from stock — competitors routinely quote weeks. Every avoided line-down day is real money."],
+  ["Global presence, 45+ countries","Direct Keyence engineers on the ground, not a multi-layer distributor chain. Faster response, consistent application know-how, one accountable partner."],
+  ["Free lifetime support & training","Application setup, parameter tuning, operator training and troubleshooting are included for life — at no charge. Competitors often bill for support and courses."],
+  ["Zero AMC","No annual maintenance contract to renew. The recurring 6–10% of capex that a competitor AMC typically costs simply disappears from your P&amp;L."],
+  ["Standby unit option*","In a breakdown, a standby unit can keep production moving while the primary is serviced — *subject to availability. This caps the worst-case downtime exposure."],
+  ["Built-in vision & verification","An integrated camera reads and grades every code as it is marked, so mismarks and no-reads are caught in-cycle — the single biggest driver of the rejection savings in this report."]
+];
+
+/* =====================================================================
+   INPUT DEFINITIONS  (defensible default assumptions, all editable)
+   ===================================================================== */
+const SHARED = [
+  ["volume","Annual production volume","parts / year",500000,1000],
+  ["partCost","Cost of one product / part","₹ each",250,1],
+  ["opDays","Operating days / year","days (max 365)",300,1,365],
+  ["shifts","Shifts per day","× 8 h each (max 3)",1,1,3],
+  ["elec","Electricity cost","₹ / kWh",8,0.5],
+  ["years","Evaluation horizon","years",5,1]
+];
+const MACHINE = [
+  ["__h1","Acquisition"],
+  ["capex","Equipment cost","₹",1400000,1100000,10000],
+  ["__h2","Throughput & quality"],
+  ["cycle","Mark / tact time","sec / part",0.8,1.1,0.1],
+  ["reject","Rejection / mismark rate","%",0.3,0.9,0.05],
+  ["__h3","Annual running costs"],
+  ["maint","Preventive maintenance","₹ / yr",5000,40000,1000],
+  ["amc","AMC / service contract","₹ / yr",0,90000,1000],
+  ["spares","Spare parts","₹ / yr",5000,45000,1000],
+  ["repair","Breakdown repair","₹ / yr",8000,60000,1000],
+  ["labour","Attributable labour","₹ / yr",120000,150000,1000],
+  ["__h4","Reliability"],
+  ["downtime","Unplanned downtime","hrs / yr",6,28,1]
+];
+
+/* ---------- build the input UI ---------- */
+function opt(val,text,placeholder){
+  const o=document.createElement('option');o.value=val;o.textContent=text;
+  if(placeholder){o.disabled=true;o.selected=true;}
+  return o;
+}
+function resetModelSelect(id,placeholder){
+  const s=document.getElementById(id);s.innerHTML='';s.appendChild(opt('',placeholder,true));s.disabled=true;
+}
+function buildControls(){
+  const t=document.getElementById('type');
+  t.appendChild(opt('','Select Laser Type',true));
+  for(const k in TYPES){t.appendChild(opt(k,TYPES[k].label));}
+  const b=document.getElementById('brand');
+  b.appendChild(opt('','Select Competitor Make',true));
+  for(const k in BRANDS){b.appendChild(opt(k,BRANDS[k]));}
+  resetModelSelect('kModelSel','Select KEYENCE Model');
+  resetModelSelect('cModelSel','Select Competitor Model');
+
+  t.addEventListener('change',onTypeChange);
+  b.addEventListener('change',onBrandChange);
+  document.getElementById('kModelSel').addEventListener('change',applyModelDefaults);
+  document.getElementById('cModelSel').addEventListener('change',applyModelDefaults);
+
+  // shared rows
+  const sr=document.getElementById('sharedRows');
+  SHARED.forEach(([id,lab,unit,val,step,max])=>{
+    const row=document.createElement('div');row.className='row shared-row';
+    row.innerHTML=`<div class="rl">${lab}<small>${unit}</small></div>
+      <div class="ri unit-inline"><input type="number" id="s_${id}" value="${val}" step="${step}" min="0"${max?` max="${max}"`:''}></div>`;
+    sr.appendChild(row);
+  });
+  // read-only auto-calculated downtime cost per hour
+  const dtRow=document.createElement('div');dtRow.className='row shared-row';
+  dtRow.innerHTML=`<div class="rl">Cost of production downtime<small>auto — production value lost / hour</small></div>
+    <div class="ri"><span id="dtRateDisplay" class="num" style="font-weight:700;color:var(--primary-deep)">—</span></div>`;
+  sr.appendChild(dtRow);
+  ['s_volume','s_partCost','s_opDays','s_shifts'].forEach(id=>document.getElementById(id).addEventListener('input',updateDowntimeRate));
+  updateDowntimeRate();
+
+  // machine rows
+  const mr=document.getElementById('machineRows');
+  MACHINE.forEach(item=>{
+    if(item[0].startsWith('__h')){
+      const h=document.createElement('div');h.className='sub';h.textContent=item[1];mr.appendChild(h);return;
     }
+    const [id,lab,unit,kv,cv,step]=item;
+    const row=document.createElement('div');row.className='row';
+    row.innerHTML=`<div class="rl">${lab}<small>${unit}</small></div>
+      <div class="ri"><input type="number" id="k_${id}" value="${kv}" step="${step}" min="0"></div>
+      <div class="ri"><input type="number" id="c_${id}" value="${cv}" step="${step}" min="0"></div>`;
+    mr.appendChild(row);
+  });
+  // nothing selected yet — selects show their placeholders
+}
 
-    function destroyCharts() {
-        Object.values(chartInstances).forEach(c => { if (c) c.destroy(); });
-        chartInstances = {};
-    }
+function resetDefaults(){
+  SHARED.forEach(([id,,,val])=>document.getElementById('s_'+id).value=val);
+  applyModelDefaults();
+  updateDowntimeRate();
+}
 
-    function showToast() {
-        const toast = document.getElementById('calcToast');
-        toast.classList.add('show');
-        setTimeout(() => toast.classList.remove('show'), 4500);
-    }
+/* laser-type changed → rebuild the Keyence model list and (re)build competitor models */
+function onTypeChange(){
+  const t=document.getElementById('type').value;
+  const matEl=document.getElementById('matnote');
+  resetModelSelect('kModelSel','Select KEYENCE Model');
+  document.getElementById('cgap').style.display='none';
+  if(!t){ matEl.style.display='none'; resetModelSelect('cModelSel','Select Competitor Model'); return; }
+  const T=TYPES[t];
+  matEl.style.display='block';
+  matEl.innerHTML='<b>'+T.label+'</b> — '+T.mat;
+  const ksel=document.getElementById('kModelSel'); ksel.innerHTML='';
+  const kmodels=Object.keys(T.keyence.models);
+  if(kmodels.length){
+    ksel.appendChild(opt('','Select KEYENCE Model',true));
+    kmodels.forEach(n=>ksel.appendChild(opt(n,n)));
+    ksel.disabled=false;
+  } else {
+    ksel.appendChild(opt('','No KEYENCE model for this type',true));
+    ksel.disabled=true;
+  }
+  document.getElementById('kcolhead').textContent='Keyence';
+  populateCompModels();
+}
 
-    function calculateROI() {
-        const btn          = document.getElementById('calcBtn');
-        const progressWrap = document.getElementById('calcProgressWrap');
-        const progressFill = document.getElementById('calcProgressFill');
+function onBrandChange(){ populateCompModels(); }
 
-        btn.disabled = true;
-        btn.classList.add('loading');
-        btn.innerHTML = '<span class="btn-spinner"></span> Calculating ROI...';
+/* (re)build the competitor model list for the current type + make */
+function populateCompModels(){
+  const t=document.getElementById('type').value;
+  const b=document.getElementById('brand').value;
+  const csel=document.getElementById('cModelSel');
+  const gapEl=document.getElementById('cgap');
+  csel.innerHTML='';
+  if(!t || !b){
+    csel.appendChild(opt('', !t?'Select a laser type first':'Select Competitor Model',true));
+    csel.disabled=true; gapEl.style.display='none'; applyModelDefaults(); return;
+  }
+  const T=TYPES[t], C=T.comp[b];
+  document.getElementById('ccolhead').textContent=BRANDS[b];
+  if(!C || C.gap){
+    csel.appendChild(opt('','No direct equivalent',true));
+    csel.disabled=true;
+    gapEl.style.display='block';
+    gapEl.textContent='⚠ '+((C&&C.note)?C.note:BRANDS[b]+' does not offer a '+T.label.split(' ')[0]+' marker for this laser type — Keyence covers this gap.');
+  } else {
+    csel.appendChild(opt('','Select Competitor Model',true));
+    Object.keys(C.models).forEach(n=>csel.appendChild(opt(n,n)));
+    csel.disabled=false;
+    gapEl.style.display='none';
+  }
+  applyModelDefaults();
+}
 
-        progressWrap.classList.add('active');
-        progressFill.style.width = '0%';
-        setTimeout(() => { progressFill.style.width = '75%'; }, 60);
+/* write the selected models' per-model default numbers into the inputs */
+function setInputs(p,m){
+  ['capex','cycle','reject','maint','amc','spares','repair','labour','downtime'].forEach(id=>{
+    const el=document.getElementById(p+id);
+    if(el && m[id]!==undefined) el.value=m[id];
+  });
+}
+function applyModelDefaults(){
+  const t=document.getElementById('type').value;
+  const b=document.getElementById('brand').value;
+  if(!t) return;
+  const T=TYPES[t];
+  const kn=document.getElementById('kModelSel').value;
+  if(kn && T.keyence.models[kn]) setInputs('k_',T.keyence.models[kn]);
+  if(b){
+    const C=T.comp[b];
+    const cn=document.getElementById('cModelSel').value;
+    if(C && !C.gap && cn && C.models[cn]) setInputs('c_',C.models[cn]);
+  }
+}
 
-        setTimeout(() => {
-            progressFill.style.width = '100%';
-            setTimeout(() => {
-                runCalculation();
+/* =====================================================================
+   FORMATTING
+   ===================================================================== */
+function fmt(n){return '₹'+Math.round(n).toLocaleString('en-IN');}
+function lakh(n){
+  const a=Math.abs(n);
+  if(a>=10000000)return '₹'+(n/10000000).toFixed(2)+' Cr';
+  if(a>=100000)return '₹'+(n/100000).toFixed(2)+' L';
+  return '₹'+Math.round(n).toLocaleString('en-IN');
+}
+function v(id){return parseFloat(document.getElementById(id).value)||0;}
 
-                btn.disabled = false;
-                btn.classList.remove('loading');
-                btn.classList.add('success');
-                btn.innerHTML = '✅ &nbsp; ROI Calculated! Recalculate?';
+/* downtime ₹/hour = production value lost per line-down hour = parts/hour × part cost */
+function downtimeRate(){
+  const opDays=Math.min(365,v('s_opDays')), shifts=Math.min(3,v('s_shifts'));
+  const runHours=shifts*8*opDays;
+  return runHours>0 ? (v('s_volume')/runHours)*v('s_partCost') : 0;
+}
+function updateDowntimeRate(){
+  const el=document.getElementById('dtRateDisplay');
+  if(el) el.textContent=fmt(downtimeRate())+' / hour';
+}
 
-                progressWrap.classList.remove('active');
-                progressFill.style.width = '0%';
+/* real text on screen, anonymised text in the printed PDF (copyright/policy) */
+function anon(real,anonText){return '<span class="anonpair"><span class="real">'+real+'</span><span class="anon">'+anonText+'</span></span>';}
+function cMake(){return anon(R.brandName,'Competitor');}
+function cMod(){return anon(R.cModel,'Competitor model');}
 
-                showToast();
+/* =====================================================================
+   CALCULATE
+   ===================================================================== */
+let R={};
+function calculate(){
+  const type=document.getElementById('type').value;
+  const brand=document.getElementById('brand').value;
+  const kModel=document.getElementById('kModelSel').value;
+  const cModel=document.getElementById('cModelSel').value;
+  const warn=document.getElementById('calcWarn');
+  let msg='';
+  if(!type) msg='Select a laser type to begin.';
+  else if(!kModel) msg='Select a Keyence model'+(Object.keys(TYPES[type].keyence.models).length?'.':' — none available for this laser type in the dataset.');
+  else if(!brand) msg='Select a competitor make.';
+  else if(!cModel) msg='Select a competitor model'+((TYPES[type].comp[brand]&&TYPES[type].comp[brand].gap)?' — this make has no equivalent for this laser type.':'.');
+  if(msg){ warn.style.display='block'; warn.textContent='⚠ '+msg; return; }
+  warn.style.display='none';
 
-                setTimeout(() => {
-                    btn.classList.remove('success');
-                    btn.innerHTML = '🔢 &nbsp; Calculate ROI Now';
-                }, 5000);
-            }, 200);
-        }, 850);
-    }
+  const vol=v('s_volume'), partCost=v('s_partCost'), years=Math.max(1,v('s_years'));
+  const opDays=Math.min(365,v('s_opDays')), shifts=Math.min(3,v('s_shifts')), elecRate=v('s_elec');
+  const runHours=shifts*8*opDays;
+  const dtRate = downtimeRate();   // auto: production value lost per line-down hour
 
-    function runCalculation() {
-        const currency           = document.getElementById('currency').value;
-        const partsPerDay        = +document.getElementById('partsPerDay').value        || 0;
-        const workingDays        = +document.getElementById('workingDays').value        || 250;
-        const rejectRate         = +document.getElementById('rejectRate').value         || 0;
-        const costPerReject      = +document.getElementById('costPerReject').value      || 0;
-        const markingTimeCur     = +document.getElementById('currentMarkingTime').value || 1;
-        const operators          = +document.getElementById('operators').value          || 0;
-        const hourlyWage         = +document.getElementById('hourlyWage').value         || 0;
-        const consumables        = +document.getElementById('consumablesCost').value    || 0;
-        const maintenance        = +document.getElementById('maintenanceCost').value    || 0;
-        const downtimeHrs        = +document.getElementById('downtimeHours').value      || 0;
-        const downtimeCostHr     = +document.getElementById('downtimeCostPerHr').value  || 0;
-        const repair             = +document.getElementById('reworkCost').value         || 0;
-        const currentPower       = +document.getElementById('currentPower').value       || 0;
-        const machineHoursPerDay = +document.getElementById('machineHoursPerDay').value || 8;
-        const electricityRate    = +document.getElementById('electricityRate').value    || 0;
-        const newPower           = +document.getElementById('newPower').value           || 0;
-        const systemPrice        = +document.getElementById('systemPrice').value        || 0;
-        const installCost        = +document.getElementById('installationCost').value   || 0;
-        const trainCost          = +document.getElementById('trainingCost').value       || 0;
-        const newMaintenance     = +document.getElementById('newMaintenanceCost').value || 0;
-        const lifetime           = +document.getElementById('systemLifetime').value     || 7;
-        const newRejectRate      = +document.getElementById('newRejectRate').value      || 0;
-        const newMarkingTime     = +document.getElementById('newMarkingTime').value     || 1;
-        const newOperators       = +document.getElementById('newOperators').value       || 0;
-        const downtimeReduction  = +document.getElementById('downtimeReduction').value  || 0;
-        const newConsumables     = +document.getElementById('newConsumablesCost').value || 0;
-        const newRepair          = +document.getElementById('newReworkCost').value      || 0;
-        const laserType          = document.getElementById('laserType').value;
-        const companyName        = document.getElementById('companyName').value || 'Your Company';
+  // power draw (kW) is a fixed datasheet property of the selected model — not a user input
+  const kKw=TYPES[type].keyence.models[kModel].kw;
+  const cKw=TYPES[type].comp[brand].models[cModel].kw;
 
-        const partsPerYear        = partsPerDay * workingDays;
-        const markingHrsPerYear   = (partsPerYear * markingTimeCur) / 3600;
-        const newMarkingHrsPerYr  = (partsPerYear * newMarkingTime) / 3600;
-        const annualMachineHours  = machineHoursPerDay * workingDays;
-        const curElectricityCost  = currentPower * annualMachineHours * electricityRate;
-        const newElectricityCost  = newPower     * annualMachineHours * electricityRate;
-        const electricitySavings  = curElectricityCost - newElectricityCost;
+  function machine(p,kw){
+    const reject = vol*(v(p+'reject')/100)*partCost;
+    const downtime = v(p+'downtime')*dtRate;
+    const kwh = kw*runHours;                  // units consumed per year
+    const energy = kwh*elecRate;              // running / energy cost per year
+    const annual = v(p+'maint')+v(p+'amc')+v(p+'spares')+v(p+'repair')+energy+v(p+'labour')+reject+downtime;
+    return {
+      capex:v(p+'capex'), cycle:v(p+'cycle'), rejectPct:v(p+'reject'),
+      maint:v(p+'maint'), amc:v(p+'amc'), spares:v(p+'spares'), repair:v(p+'repair'),
+      kw:kw, kwh:kwh, energy:energy, labour:v(p+'labour'), dtHrs:v(p+'downtime'),
+      rejectCost:reject, dtCost:downtime, annual:annual,
+      tco:v(p+'capex')+annual*years,
+      pph: v(p+'cycle')>0 ? 3600/v(p+'cycle') : 0
+    };
+  }
+  const K=machine('k_',kKw), C=machine('c_',cKw);
 
-        const curRejectCost   = partsPerYear * (rejectRate / 100) * costPerReject;
-        const curLaborCost    = operators * markingHrsPerYear * hourlyWage;
-        const curDowntimeCost = downtimeHrs * downtimeCostHr;
-        const curTotal        = curRejectCost + curLaborCost + consumables + maintenance
-                              + curDowntimeCost + repair + curElectricityCost;
+  const annualSaving = C.annual-K.annual;
+  const extraCapex   = K.capex-C.capex;
+  const totalSaving  = C.tco-K.tco;
+  const paybackYrs   = annualSaving>0 ? extraCapex/annualSaving : (extraCapex<=0?0:Infinity);
+  const roiPct       = K.capex>0 ? (totalSaving/K.capex)*100 : 0;
+  const capGain      = C.pph>0 ? ((K.pph-C.pph)/C.pph)*100 : 0;
 
-        const newRejectCost   = partsPerYear * (newRejectRate / 100) * costPerReject;
-        const newLaborCost    = newOperators * newMarkingHrsPerYr * hourlyWage;
-        const newDowntimeCost = curDowntimeCost * (1 - downtimeReduction / 100);
-        const newTotal        = newRejectCost + newLaborCost + newConsumables + newMaintenance
-                              + newDowntimeCost + newRepair + newElectricityCost;
+  R={K,C,vol,partCost,dtRate,years,annualSaving,extraCapex,totalSaving,paybackYrs,roiPct,capGain,
+     opDays,shifts,elecRate,runHours,
+     type:document.getElementById('type').value,
+     brand:document.getElementById('brand').value,
+     kModel:document.getElementById('kModelSel').value,
+     cModel:document.getElementById('cModelSel').value,
+     brandName:BRANDS[document.getElementById('brand').value]};
+  renderReport();
+  document.getElementById('report').style.display='block';
+  document.getElementById('report').scrollIntoView({behavior:'smooth'});
+}
 
-        const totalInvestment = systemPrice + installCost + trainCost;
-        const annualSavings   = curTotal - newTotal;
-        const paybackMonths   = annualSavings > 0 ? (totalInvestment / annualSavings) * 12 : Infinity;
-        const rejectSavings   = curRejectCost - newRejectCost;
-        const laborSavings    = curLaborCost  - newLaborCost;
-        const consumSavings   = consumables   - newConsumables;
-        const roi3            = totalInvestment > 0 ? ((annualSavings * 3) - totalInvestment) / totalInvestment * 100 : 0;
-        const roi5            = totalInvestment > 0 ? ((annualSavings * 5) - totalInvestment) / totalInvestment * 100 : 0;
-        const productivity    = markingTimeCur > 0 ? ((markingTimeCur - newMarkingTime) / markingTimeCur) * 100 : 0;
+/* =====================================================================
+   RENDER REPORT
+   ===================================================================== */
+function renderReport(){
+  const {K,C,years}=R;
+  const kWins = R.totalSaving>0;
 
-        let paybackDisplay;
-        if (!isFinite(paybackMonths))  paybackDisplay = 'N/A';
-        else if (paybackMonths < 1)    paybackDisplay = '< 1 mo';
-        else if (paybackMonths < 12)   paybackDisplay = paybackMonths.toFixed(1) + ' mo';
-        else                           paybackDisplay = (paybackMonths / 12).toFixed(1) + ' yrs';
+  document.getElementById('rTitle').innerHTML='Keyence '+R.kModel+'  vs  '+cMake();
+  document.getElementById('rVs').innerHTML='Laser type <b>'+TYPES[R.type].label+'</b> · '+cMake()+' '+
+    (R.cModel==='No direct equivalent'?'<b>(no equivalent model)</b>':'<b>'+cMod()+'</b>')+
+    ' · '+years+'-year horizon · '+R.vol.toLocaleString('en-IN')+' parts/yr'+
+    ' · energy basis '+R.shifts+' shift'+(R.shifts>1?'s':'')+' × 8 h × '+R.opDays+' days @ ₹'+R.elecRate+'/kWh ('+Math.round(R.runHours).toLocaleString('en-IN')+' run-hr/yr)'+
+    ' · downtime '+fmt(R.dtRate)+'/hr (auto: production value lost)';
 
-        const laserNames = {
-            UV: 'UV Laser — MD-U2000', Hybrid: 'Hybrid Laser — MD-X2000',
-            fiber: 'Fiber Laser — MD-F', CO2: 'CO2 Laser — ML-Z'
-        };
-        const laserName = laserNames[laserType] || 'Laser System';
+  /* KPIs */
+  const pay = R.paybackYrs===0 ? 'Immediate' : (isFinite(R.paybackYrs)? (R.paybackYrs*12).toFixed(1)+' mo':'—');
+  document.getElementById('rKpis').innerHTML=`
+    <div class="kpi"><div class="l">${years}-yr net saving (Keyence)</div>
+      <div class="v ${kWins?'green':'amber'}">${lakh(R.totalSaving)}</div>
+      <div class="s">${kWins?'in Keyence\u2019s favour':'competitor cheaper here'}</div></div>
+    <div class="kpi"><div class="l">Payback on price premium</div>
+      <div class="v">${pay}</div>
+      <div class="s">extra capex ${lakh(R.extraCapex)}</div></div>
+    <div class="kpi"><div class="l">Effective ROI (${years} yr)</div>
+      <div class="v green">${Math.round(R.roiPct)}%</div>
+      <div class="s">net saving ÷ Keyence capex</div></div>
+    <div class="kpi"><div class="l">Annual cost saving</div>
+      <div class="v amber">${lakh(R.annualSaving)}</div>
+      <div class="s">every year of operation</div></div>`;
 
-        document.getElementById('bannerSavings').textContent      = fmt(annualSavings);
-        document.getElementById('bannerPayback').textContent      = paybackDisplay;
-        document.getElementById('bannerROI5').textContent         = roi5.toFixed(0) + '%';
-        document.getElementById('bannerProductivity').textContent = productivity.toFixed(0) + '%';
+  /* Executive summary */
+  const fasterPct=Math.round(Math.abs(R.capGain));
+  const rejGap=(C.rejectPct-K.rejectPct);
+  const rejSave=C.rejectCost-K.rejectCost;
+  const dtSave=C.dtCost-K.dtCost;
+  let s='';
+  if(kWins){
+    s+=`<p>On a like-for-like ${TYPES[R.type].label} comparison, the <b>Keyence ${R.kModel}</b> carries a higher sticker price `+
+       `(<span class="pop">${lakh(R.extraCapex>0?R.extraCapex:0)}</span> more than the ${cMake()} option), yet returns that premium in `+
+       `<span class="pop">${R.paybackYrs===0?'day one':(isFinite(R.paybackYrs)?(R.paybackYrs*12).toFixed(1)+' months':'—')}</span> `+
+       `and delivers a net saving of <span class="pop">${lakh(R.totalSaving)}</span> over ${years} years.</p>`;
+  } else {
+    s+=`<p>On the figures entered, the ${cMake()} option shows a lower ${years}-year cost. The gap is `+
+       `<span class="pop amber">${lakh(-R.totalSaving)}</span> — review the rejection, AMC and downtime assumptions below, as these are usually where Keyence recovers the difference.</p>`;
+  }
+  s+=`<p>The decisive line item is <b>quality</b>: a ${rejGap.toFixed(2)} percentage-point lower rejection rate on `+
+     `${R.vol.toLocaleString('en-IN')} parts is worth <span class="pop">${lakh(rejSave)}</span> a year in avoided scrap — `+
+     `driven by the built-in camera that grades every code in-cycle. Add <b>${lakh(C.amc-K.amc)}</b> saved on AMC and `+
+     `<span class="pop">${lakh(dtSave)}</span> from ${(C.dtHrs-K.dtHrs)} fewer downtime hours, and the total-cost picture inverts the purchase-price story.</p>`;
+  s+=`<p>On throughput, the ${R.kModel} marks ${fasterPct>0?'about <span class="pop">'+fasterPct+'% faster</span>':'at comparable speed'} `+
+     `(${Math.round(K.pph)} vs ${Math.round(C.pph)} parts/hour), and Keyence\u2019s same-day shipment, zero-AMC service and standby-unit option cap the worst-case downtime exposure that a cheaper machine quietly carries.</p>`;
+  document.getElementById('rSummary').innerHTML=s;
 
-        document.getElementById('kpiAnnualSavings').textContent      = fmt(annualSavings);
-        document.getElementById('kpiPayback').textContent            = paybackDisplay;
-        document.getElementById('kpiROI3').textContent               = roi3.toFixed(1) + '%';
-        document.getElementById('kpiROI5').textContent               = roi5.toFixed(1) + '%';
-        document.getElementById('kpiRejectSavings').textContent      = fmt(rejectSavings);
-        document.getElementById('kpiProductivity').textContent       = productivity.toFixed(1) + '%';
-        document.getElementById('kpiElectricitySavings').textContent = fmt(electricitySavings);
+  /* TCO table */
+  function rt(lab,k,c,better){
+    const kw = better==='low'? k<c : k>c;
+    return `<tr><td>${lab}</td>
+      <td class="n kcell ${kw?'win':''}">${fmt(k)}</td>
+      <td class="n ${!kw?'win':''}">${fmt(c)}</td>
+      <td class="n">${(k-c>=0?'+':'')}${lakh(k-c)}</td></tr>`;
+  }
+  document.getElementById('rTco').innerHTML=
+    `<thead><tr><th>Cost element</th><th class="kc" style="text-align:right">Keyence ${R.kModel}</th>
+      <th class="cc" style="text-align:right">${cMake()}</th><th style="text-align:right">Δ (K − C)</th></tr></thead><tbody>`+
+    rt('Equipment (one-time)',K.capex,C.capex,'low')+
+    rt('Rejection / scrap — per year',K.rejectCost,C.rejectCost,'low')+
+    rt('Downtime cost — per year',K.dtCost,C.dtCost,'low')+
+    rt('AMC / service contract — per year',K.amc,C.amc,'low')+
+    rt('Preventive maintenance — per year',K.maint,C.maint,'low')+
+    rt('Spare parts — per year',K.spares,C.spares,'low')+
+    rt('Breakdown repair — per year',K.repair,C.repair,'low')+
+    rt('Running / energy — per year',K.energy,C.energy,'low')+
+    rt('Labour — per year',K.labour,C.labour,'low')+
+    rt('Annual operating cost (subtotal)',K.annual,C.annual,'low')+
+    `<tr class="total"><td>${years}-year total cost of ownership</td>
+      <td class="n kcell">${fmt(K.tco)}</td><td class="n">${fmt(C.tco)}</td>
+      <td class="n">${lakh(K.tco-C.tco)}</td></tr></tbody>`;
 
-        document.getElementById('recTitle').textContent = `📊 ${laserName} ROI Report — ${companyName}`;
-        const recs = [];
-        if      (paybackMonths < 18)       recs.push({ icon: '🟢', text: `Excellent ROI — Full payback in ${paybackDisplay}` });
-        else if (paybackMonths < 36)       recs.push({ icon: '🟡', text: `Good investment — Payback in ${paybackDisplay}` });
-        else if (isFinite(paybackMonths))  recs.push({ icon: '🔴', text: `Extended payback (${paybackDisplay}) — review volume or pricing` });
-        else                               recs.push({ icon: '⚠️', text: 'No net savings projected — review input values' });
-        if      (productivity > 50)        recs.push({ icon: '⚡', text: `${productivity.toFixed(0)}% faster marking dramatically increases throughput` });
-        else if (productivity > 0)         recs.push({ icon: '⚡', text: `${productivity.toFixed(0)}% improvement in marking cycle time` });
-        if (rejectSavings > 0)      recs.push({ icon: '♻️', text: `${fmt(rejectSavings)}/yr saved from reject reduction (${rejectRate}% → ${newRejectRate}%)` });
-        if (laborSavings > 0)       recs.push({ icon: '👷', text: `${fmt(laborSavings)}/yr saved in labor costs` });
-        if (consumSavings > 0)      recs.push({ icon: '🔧', text: `${fmt(consumSavings)}/yr saved on consumables` });
-        if (electricitySavings > 0) recs.push({ icon: '🔌', text: `${fmt(electricitySavings)}/yr saved on electricity (${currentPower} kW → ${newPower} kW)` });
-        if (roi5 > 100)             recs.push({ icon: '🚀', text: `Outstanding 5-year ROI of ${roi5.toFixed(0)}% — strong long-term investment` });
+  /* charts */
+  const cats=['Rejection','Downtime','AMC','Maint.','Spares','Repair','Running','Labour'];
+  const kv=[K.rejectCost,K.dtCost,K.amc,K.maint,K.spares,K.repair,K.energy,K.labour];
+  const cv=[C.rejectCost,C.dtCost,C.amc,C.maint,C.spares,C.repair,C.energy,C.labour];
+  document.getElementById('rChartCost').innerHTML=hBars(cats,kv,cv);
 
-        document.getElementById('recGrid').innerHTML = recs.map(r =>
-            `<div class="rec-item"><span class="rec-icon">${r.icon}</span><span>${r.text}</span></div>`
-        ).join('');
+  const ylabels=[],kc=[],cc=[];
+  for(let i=1;i<=years;i++){ylabels.push('Yr '+i);kc.push(K.capex+K.annual*i);cc.push(C.capex+C.annual*i);}
+  document.getElementById('rChartTco').innerHTML=vBars(ylabels,kc,cc);
 
-        const rows = [
-            ['⚠️ Reject / Scrap Cost', curRejectCost,      newRejectCost],
-            ['👷 Labor Cost (Marking)', curLaborCost,       newLaborCost],
-            ['🔧 Consumables',          consumables,        newConsumables],
-            ['🛠️ Maintenance',          maintenance,        newMaintenance],
-            ['⏸️ Downtime Cost',        curDowntimeCost,    newDowntimeCost],
-            ['🔩 Repair Cost',          repair,             newRepair],
-            ['⚡ Electricity Cost',      curElectricityCost, newElectricityCost],
-        ];
+  /* performance scorecard */
+  function pr(lab,k,c,better,unit){
+    const kw = better==='low'? k<c : k>c;
+    const f = x => (typeof x==='number' && Math.abs(x)>=1000)? x.toLocaleString('en-IN') : x;
+    return `<tr><td>${lab}</td>
+      <td class="n kcell ${kw?'win':'lose'}">${f(k)}${unit}</td>
+      <td class="n ${!kw?'win':'lose'}">${f(c)}${unit}</td>
+      <td>${kw?'<span class="tick">✔ Keyence</span>':'<span class="cross">'+cMake()+'</span>'}</td></tr>`;
+  }
+  document.getElementById('rPerf').innerHTML=
+    `<thead><tr><th>Metric</th><th class="kc" style="text-align:right">Keyence</th>
+      <th class="cc" style="text-align:right">${cMake()}</th><th>Better</th></tr></thead><tbody>`+
+    pr('Mark / tact time',K.cycle,C.cycle,'low',' s')+
+    pr('Throughput (parts/hr)',Math.round(K.pph),Math.round(C.pph),'high','')+
+    pr('Rejection / mismark rate',K.rejectPct,C.rejectPct,'low',' %')+
+    pr('Unplanned downtime',K.dtHrs,C.dtHrs,'low',' hr/yr')+
+    pr('Power consumption',K.kw,C.kw,'low',' kW')+
+    pr('Energy used / year',Math.round(K.kwh),Math.round(C.kwh),'low',' kWh')+
+    `</tbody>`;
 
-        document.getElementById('breakdownBody').innerHTML = rows.map(r => {
-            const savings = r[1] - r[2];
-            const pct = r[1] > 0 ? ((savings / r[1]) * 100).toFixed(0) + '%' : '—';
-            const cls = savings >= 0 ? 'positive-val' : 'negative-val';
-            return `<tr>
-                <td>${r[0]}</td>
-                <td>${fmt(r[1])}</td>
-                <td>${fmt(r[2])}</td>
-                <td class="${cls}">${savings >= 0 ? '+' : ''}${fmt(savings)}</td>
-                <td class="${cls}">${savings >= 0 ? pct : '▲'}</td>
-            </tr>`;
-        }).join('');
+  /* specs — per-model numeric rows + per-type qualitative rows */
+  const T=TYPES[R.type];
+  const km=T.keyence.models[R.kModel];
+  const Cbrand=T.comp[R.brand];
+  const cm=(Cbrand && !Cbrand.gap)?Cbrand.models[R.cModel]:null;
+  const specRows=[
+    ["Wavelength", km?km.wl:'—', cm?cm.wl:'—', 'tie'],
+    ["Typical power", km?km.watt:'—', cm?cm.watt:'—', 'tie'],
+    ["Marking field", km?km.field:'—', cm?cm.field:'—', 'k'],
+    ["Head ingress protection", km?km.ip:'—', cm?cm.ip:'—', 'k']
+  ].concat(T.specCommon);
+  let st=`<thead><tr><th>Specification</th><th class="kc">Keyence ${R.kModel}</th>
+    <th class="cc">${cMake()}${cm?' '+cMod():''}</th><th>Edge</th></tr></thead><tbody>`;
+  specRows.forEach(([lab,k,c,e])=>{
+    const edge = e==='k'?'<span class="tick">✔</span>':'<span style="color:var(--muted-2)">— tie</span>';
+    st+=`<tr><td>${lab}</td><td class="kcell">${k}</td><td>${c}</td><td>${edge}</td></tr>`;
+  });
+  document.getElementById('rSpecs').innerHTML=st+'</tbody>';
 
-        const totalSav = curTotal - newTotal;
-        const totalPct = curTotal > 0 ? ((totalSav / curTotal) * 100).toFixed(0) + '%' : '—';
-        document.getElementById('breakdownFoot').innerHTML = `<tr>
-            <td>📊 TOTAL ANNUAL COST</td>
-            <td>${fmt(curTotal)}</td>
-            <td>${fmt(newTotal)}</td>
-            <td class="${totalSav >= 0 ? 'positive-val' : 'negative-val'}">${totalSav >= 0 ? '+' : ''}${fmt(totalSav)}</td>
-            <td class="${totalSav >= 0 ? 'positive-val' : 'negative-val'}">${totalSav >= 0 ? totalPct : '▲'}</td>
-        </tr>`;
+  /* features */
+  let ft=`<thead><tr><th>Feature / service term</th><th class="kc" style="text-align:center">Keyence</th>
+    <th class="cc" style="text-align:center">${cMake()}</th><th>Why it matters</th></tr></thead><tbody>`;
+  FEATURES.forEach(([lab,k,c,why,ic])=>{
+    ft+=`<tr><td><div class="feat-cell">${featIcon(ic)}<span>${lab}</span></div></td>
+      <td style="text-align:center">${k?'<span class="dot-ico y">✓</span>':'<span class="dot-ico n">✕</span>'}</td>
+      <td style="text-align:center">${c?'<span class="dot-ico y">✓</span>':'<span class="dot-ico n">✕</span>'}</td>
+      <td style="color:var(--muted);font-size:12.5px">${why}</td></tr>`;
+  });
+  document.getElementById('rFeat').innerHTML=ft+'</tbody>';
 
-        destroyCharts();
+  /* USPs */
+  document.getElementById('rUsp').innerHTML=USPS.map(([t,p])=>
+    `<div class="uspc"><div class="ut"><span class="dot-ico y">✓</span>${t}</div><p>${p}</p></div>`).join('');
 
-        chartInstances.bar = new Chart(document.getElementById('costComparisonChart'), {
-            type: 'bar',
-            data: {
-                labels: ['Current System', laserName],
-                datasets: [
-                    { label: 'Reject Cost',  data: [curRejectCost,      newRejectCost],       backgroundColor: '#cc0000' },
-                    { label: 'Labor',         data: [curLaborCost,       newLaborCost],         backgroundColor: '#ff6600' },
-                    { label: 'Consumables',   data: [consumables,        newConsumables],        backgroundColor: '#ffaa00' },
-                    { label: 'Maintenance',   data: [maintenance,        newMaintenance],        backgroundColor: '#0066cc' },
-                    { label: 'Downtime',      data: [curDowntimeCost,    newDowntimeCost],       backgroundColor: '#6600cc' },
-                    { label: 'Repair',        data: [repair,             newRepair],             backgroundColor: '#00aa44' },
-                    { label: 'Electricity',   data: [curElectricityCost, newElectricityCost],    backgroundColor: '#009688' },
-                ]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } },
-                    tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + fmt(ctx.parsed.y) } }
-                },
-                scales: {
-                    x: { stacked: true },
-                    y: { stacked: true, ticks: { callback: v => fmt(v), maxTicksLimit: 6 } }
-                }
-            }
-        });
+  /* footer */
+  const d=new Date().toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
+  document.getElementById('rFoot').innerHTML=
+    `Report generated ${d}. Figures are based on the assumptions entered above and are intended for internal evaluation and customer discussion. `+
+    `Technical specifications are representative for the selected laser type and should be confirmed against the quoted configuration. `+
+    `*Standby / loaner unit is subject to availability. Competitor model names are trademarks of their respective owners and are referenced for comparison only.`;
+}
 
-        const yearLabels = Array.from({ length: lifetime + 1 }, (_, i) => 'Y' + i);
-        const cumData    = yearLabels.map((_, i) => (annualSavings * i) - totalInvestment);
+/* =====================================================================
+   NATIVE SVG CHARTS (no external libraries — fully offline)
+   ===================================================================== */
+function niceMax(m){if(m<=0)return 1;const p=Math.pow(10,Math.floor(Math.log10(m)));const n=m/p;
+  const s=n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10;return s*p;}
 
-        chartInstances.line = new Chart(document.getElementById('cumulativeSavingsChart'), {
-            type: 'line',
-            data: {
-                labels: yearLabels,
-                datasets: [
-                    {
-                        label: 'Cumulative Net Savings',
-                        data: cumData,
-                        borderColor: '#cc0000',
-                        backgroundColor: 'rgba(204,0,0,0.08)',
-                        fill: true, tension: 0.4, borderWidth: 2.5,
-                        pointBackgroundColor: '#cc0000',
-                        pointRadius: 3,
-                    },
-                    {
-                        label: 'Break-Even Line',
-                        data: new Array(lifetime + 1).fill(0),
-                        borderColor: '#aaa',
-                        borderDash: [6, 4],
-                        borderWidth: 1.5,
-                        pointRadius: 0,
-                        fill: false,
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } },
-                    tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + fmt(ctx.parsed.y) } }
-                },
-                scales: { y: { ticks: { callback: v => fmt(v), maxTicksLimit: 6 } } }
-            }
-        });
+function hBars(cats,kv,cv){
+  const W=720,rowH=42,padL=92,padR=70,padT=10,padB=8;
+  const H=padT+padB+cats.length*rowH;
+  const max=niceMax(Math.max(...kv,...cv,1));
+  const plotW=W-padL-padR;
+  let s=`<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">`;
+  cats.forEach((c,i)=>{
+    const y=padT+i*rowH;
+    const kw=plotW*(kv[i]/max), cw=plotW*(cv[i]/max);
+    s+=`<text class="axislabel" x="${padL-8}" y="${y+rowH/2}" text-anchor="end" dominant-baseline="middle">${c}</text>`;
+    s+=`<rect x="${padL}" y="${y+7}" width="${kw}" height="11" rx="2" fill="var(--primary)"></rect>`;
+    s+=`<rect x="${padL}" y="${y+22}" width="${cw}" height="11" rx="2" fill="var(--laser)"></rect>`;
+    s+=`<text class="barlabel" x="${padL+kw+5}" y="${y+13}" dominant-baseline="middle">${lakh(kv[i])}</text>`;
+    s+=`<text class="barlabel" x="${padL+cw+5}" y="${y+28}" dominant-baseline="middle">${lakh(cv[i])}</text>`;
+  });
+  s+=`</svg>`;return s;
+}
 
-        function makePie(canvasId, dataArr, labelArr) {
-            return new Chart(document.getElementById(canvasId), {
-                type: 'doughnut',
-                data: {
-                    labels: labelArr,
-                    datasets: [{
-                        data: dataArr,
-                        backgroundColor: ['#cc0000','#ff6600','#ffaa00','#0066cc','#6600cc','#00aa44','#009688'],
-                        borderWidth: 2,
-                        borderColor: '#fff'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12 } },
-                        tooltip: { callbacks: { label: ctx => ctx.label + ': ' + fmt(ctx.parsed) } }
-                    }
-                }
-            });
-        }
+function vBars(labels,kv,cv){
+  const W=720,H=300,padL=64,padR=14,padT=16,padB=34;
+  const max=niceMax(Math.max(...kv,...cv,1));
+  const plotW=W-padL-padR, plotH=H-padT-padB;
+  const groupW=plotW/labels.length, bw=Math.min(34,groupW*0.3);
+  let s=`<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">`;
+  for(let g=0;g<=4;g++){const val=max*g/4;const y=padT+plotH-plotH*(g/4);
+    s+=`<line class="gridline" x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}"></line>`;
+    s+=`<text class="axislabel" x="${padL-8}" y="${y}" text-anchor="end" dominant-baseline="middle">${lakh(val)}</text>`;}
+  labels.forEach((lab,i)=>{
+    const cx=padL+groupW*i+groupW/2;
+    const kh=plotH*(kv[i]/max), ch=plotH*(cv[i]/max);
+    s+=`<rect x="${cx-bw-2}" y="${padT+plotH-kh}" width="${bw}" height="${kh}" rx="2" fill="var(--primary)"></rect>`;
+    s+=`<rect x="${cx+2}" y="${padT+plotH-ch}" width="${bw}" height="${ch}" rx="2" fill="var(--laser)"></rect>`;
+    s+=`<text class="axislabel" x="${cx}" y="${H-12}" text-anchor="middle">${lab}</text>`;
+  });
+  s+=`</svg>`;return s;
+}
 
-        const pieLabels = ['Reject Cost','Labor','Consumables','Maintenance','Downtime','Repair','Electricity'];
-        chartInstances.pie1 = makePie('currentPieChart',
-            [curRejectCost, curLaborCost, consumables, maintenance, curDowntimeCost, repair, curElectricityCost], pieLabels);
-        chartInstances.pie2 = makePie('newPieChart',
-            [newRejectCost, newLaborCost, newConsumables, newMaintenance, newDowntimeCost, newRepair, newElectricityCost], pieLabels);
-
-        const resultsEl = document.getElementById('resultsSection');
-        resultsEl.classList.add('visible');
-        setTimeout(() => resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
-    }
-
-    function resetCalculator() {
-        destroyCharts();
-        document.getElementById('resultsSection').classList.remove('visible');
-        const btn = document.getElementById('calcBtn');
-        btn.disabled = false;
-        btn.classList.remove('loading', 'success');
-        btn.innerHTML = '🔢 &nbsp; Calculate ROI Now';
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+buildControls();
 </script>
-
 </body>
 </html>
